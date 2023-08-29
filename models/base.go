@@ -1,0 +1,162 @@
+package models
+
+import (
+	"context"
+	"time"
+
+	"github.com/jyjiangkai/stat/models/cloud"
+	"github.com/jyjiangkai/stat/utils"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+const (
+	UserKindOfActive  string = "active"
+	UserKindOfCreated string = "created"
+	UserKindOfUsed    string = "used"
+	UserKindOfPaid    string = "paid"
+)
+
+func NewBase(ctx context.Context) cloud.Base {
+	return cloud.Base{
+		ID:        primitive.NewObjectID(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		CreatedBy: utils.GetUserID(ctx),
+		UpdatedBy: utils.GetUserID(ctx),
+	}
+}
+
+// type Base struct {
+// 	ID        primitive.ObjectID `json:"id" bson:"_id"`
+// 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
+// 	UpdatedAt time.Time          `json:"updated_at,omitempty" bson:"updated_at"`
+// 	CreatedBy string             `json:"created_by,omitempty" bson:"created_by"`
+// 	UpdatedBy string             `json:"updated_by,omitempty" bson:"updated_by"`
+// 	Reg       string             `json:"region,omitempty" bson:"region"`
+// }
+
+// func (b Base) ObjectID() primitive.ObjectID {
+// 	return b.ID
+// }
+
+type Organization struct {
+	cloud.Base `json:",inline" bson:",inline"`
+	Name       string `json:"name" bson:"name"`
+}
+
+type User struct {
+	cloud.Base   `json:",inline" bson:",inline"`
+	OID          string  `json:"oidc_id" bson:"oidc_id"`
+	Phone        string  `json:"phone" bson:"phone"`
+	Email        string  `json:"email" bson:"email"`
+	Country      string  `json:"country" bson:"country"`
+	GivenName    string  `json:"given_name" bson:"given_name"`
+	FamilyName   string  `json:"family_name" bson:"family_name"`
+	NickName     string  `json:"nickname" bson:"nickname"`
+	CompanyName  string  `json:"company_name" bson:"company_name"`
+	CompanyEmail string  `json:"company_email" bson:"company_email"`
+	Class        *Class  `json:"class" bson:"class"`
+	Bills        *Bills  `json:"bills" bson:"bills"`
+	Usages       *Usages `json:"usages" bson:"usages"`
+}
+
+type Class struct {
+	AI      *Level `json:"ai" bson:"ai"`
+	Connect *Level `json:"connect" bson:"connect"`
+}
+
+type Level struct {
+	Premium bool `json:"premium" bson:"premium"`
+	Plan    Plan `json:"plan" bson:"plan"`
+}
+
+type Plan struct {
+	Type  string `json:"type" bson:"type"`
+	Level int    `json:"level" bson:"level"`
+}
+
+type Bills struct {
+	AI      *AIBills      `json:"ai" bson:"ai"`
+	Connect *ConnectBills `json:"connect" bson:"connect"`
+}
+
+type AIBills struct {
+	Items     map[time.Time]uint64 `json:"items" bson:"items"`
+	Total     uint64               `json:"total" bson:"total"`
+	Yesterday uint64               `json:"yesterday" bson:"yesterday"`
+}
+
+type ConnectBills struct {
+	Items     map[time.Time]uint64 `json:"items" bson:"items"`
+	Total     uint64               `json:"total" bson:"total"`
+	Yesterday uint64               `json:"yesterday" bson:"yesterday"`
+}
+
+type Usages struct {
+	AI      *AIUsages      `json:"ai" bson:"ai"`
+	Connect *ConnectUsages `json:"connect" bson:"connect"`
+}
+
+type AIUsages struct {
+	App           int64 `json:"app" bson:"app"`
+	Upload        int64 `json:"upload" bson:"upload"`
+	KnowledgeBase int64 `json:"knowledge_base" bson:"knowledge_base"`
+}
+
+type ConnectUsages struct {
+	Connection int64 `json:"connection" bson:"connection"`
+}
+
+type UserDetail struct {
+	Apps        []*App        `json:"apps" bson:"apps"`
+	Connections []*Connection `json:"connections" bson:"connections"`
+}
+
+type App struct {
+	cloud.Base      `json:",inline" bson:",inline"`
+	Name            string   `json:"name" bson:"name"`
+	Type            string   `json:"type" bson:"type"`
+	Model           string   `json:"model" bson:"model"`
+	Status          string   `json:"status" bson:"status"`
+	TotalUsage      uint64   `json:"total_usage" bson:"total_usage"`
+	KnowledgeBaseID []string `json:"-" bson:"knowledge_base_id"`
+}
+
+type Connection struct {
+	cloud.Base    `json:",inline" bson:",inline"`
+	Name          string               `json:"name" bson:"name"`
+	Status        string               `json:"status" bson:"status"`
+	Description   string               `json:"description" bson:"description"`
+	TotalUsage    uint64               `json:"total_usage" bson:"total_usage"`
+	EventbusID    primitive.ObjectID   `json:"eventbus_id" bson:"eventbus_id"`
+	Subscriptions []primitive.ObjectID `json:"subscriptions" bson:"subscriptions"`
+	SourceID      primitive.ObjectID   `json:"source_id" bson:"source_id"`
+	SinkID        primitive.ObjectID   `json:"sink_id" bson:"sink_id"`
+	SourceType    primitive.ObjectID   `json:"source_type" bson:"source_type"`
+	SinkType      primitive.ObjectID   `json:"sink_type" bson:"sink_type"`
+}
+
+type RegionInfo struct {
+	Name                   string `bson:"name"`
+	Provider               string `bson:"provider"`
+	Location               string `bson:"location"`
+	GatewayEndpoint        string `bson:"gateway_endpoint"`
+	OperatorEndpoint       string `bson:"operator_endpoint"`
+	PrometheusEndpoint     string `bson:"prometheus_endpoint"`
+	Token                  string `bson:"token"`
+	ExternalDNS            string `bson:"external_dns"`
+	IntegrationExternalDNS string `bson:"integration_external_dns"`
+}
+
+func NewAIBill() *AIBills {
+	return &AIBills{
+		Items: make(map[time.Time]uint64),
+	}
+}
+
+func NewConnectBill() *ConnectBills {
+	return &ConnectBills{
+		Items: make(map[time.Time]uint64),
+	}
+}
