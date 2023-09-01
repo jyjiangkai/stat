@@ -1,0 +1,18 @@
+## createIndexes
+
+db.users.createIndex( { "oidc_id" : 1 }, { "unique" : true, } )
+db.users.createIndex( { "email": 1 }, { "unique" : true} )
+db.ingresses.createIndex( { "name": 1 }, { "unique" : true} )
+
+db.eventbus.createIndex( { "name" : 1, "status": 1 }, { "unique" : true } )
+
+db.subscriptions.createIndex( { "internal_name" : 1,"status": 1  }, { "unique" : true })
+
+db.connections.createIndex( { "status": 1 } )
+
+db.connectors.createIndex( { "status": 1 } )
+
+### no indexes(pending)
+db.app_authorizations.createIndex()
+db.connections.createIndex( { "name" : 1 }, { "unique" : true } )
+db.connectors.createIndex( { "kind" : 1, "type" : 1, "name" : 1 }, { "unique" : true })

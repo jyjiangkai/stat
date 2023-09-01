@@ -1,0 +1,7 @@
+# copy from testing env
+# port: 8080
+# mongodb:
+#   address: "cluster1.odfrc.mongodb.net"
+#   database: "vanus-cloud-prod"
+#   username: "vanus-cloud-prod-rw"
+#   password: ""

@@ -1,0 +1,16 @@
+version: '3'
+services:
+  stat:
+    container_name: stat
+    image: public.ecr.aws/vanus/stat:jiangkai
+    expose:
+      - 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/server.yaml:/vanus-cloud/config/server.yaml
+    networks:
+      - vanus
+networks:
+  vanus:
+    driver: bridge
