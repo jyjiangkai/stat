@@ -8,12 +8,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (cs *CollectorService) getUsages(ctx context.Context, oid string) (*models.Usages, error) {
-	aiUsages, err := cs.getAIUsages(ctx, oid)
+func (rs *RefreshService) getUsages(ctx context.Context, oid string) (*models.Usages, error) {
+	aiUsages, err := rs.getAIUsages(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
-	connectUsages, err := cs.getConnectUsages(ctx, oid)
+	connectUsages, err := rs.getConnectUsages(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func (cs *CollectorService) getUsages(ctx context.Context, oid string) (*models.
 	}, nil
 }
 
-func (cs *CollectorService) getAIUsages(ctx context.Context, oid string) (*models.AIUsages, error) {
+func (rs *RefreshService) getAIUsages(ctx context.Context, oid string) (*models.AIUsages, error) {
 	usages := &models.AIUsages{}
 	uploadQuery := bson.M{
 		"created_by": oid,
@@ -31,7 +31,7 @@ func (cs *CollectorService) getAIUsages(ctx context.Context, oid string) (*model
 			"$ne": "deleted",
 		},
 	}
-	uploadNum, err := cs.aiUploadColl.CountDocuments(ctx, uploadQuery)
+	uploadNum, err := rs.aiUploadColl.CountDocuments(ctx, uploadQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (cs *CollectorService) getAIUsages(ctx context.Context, oid string) (*model
 			"$ne": "deleted",
 		},
 	}
-	cursor, err := cs.aiAppColl.Find(ctx, appQuery)
+	cursor, err := rs.aiAppColl.Find(ctx, appQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (cs *CollectorService) getAIUsages(ctx context.Context, oid string) (*model
 	return usages, nil
 }
 
-func (cs *CollectorService) getConnectUsages(ctx context.Context, oid string) (*models.ConnectUsages, error) {
+func (rs *RefreshService) getConnectUsages(ctx context.Context, oid string) (*models.ConnectUsages, error) {
 	usages := &models.ConnectUsages{}
 	query := bson.M{
 		"created_by": oid,
@@ -76,7 +76,7 @@ func (cs *CollectorService) getConnectUsages(ctx context.Context, oid string) (*
 			"$ne": "deleted",
 		},
 	}
-	num, err := cs.connectionColl.CountDocuments(ctx, query)
+	num, err := rs.connectionColl.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, err
 	}
