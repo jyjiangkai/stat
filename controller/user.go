@@ -64,12 +64,3 @@ func (uc *UserController) Get(ctx *gin.Context) (any, error) {
 	}
 	return result, nil
 }
-
-// func getUserID(ctx *gin.Context) (primitive.ObjectID, error) {
-// 	oid := ctx.Param(ParamOfUserOID)
-// 	id, err := primitive.ObjectIDFromHex(idStr)
-// 	if err != nil {
-// 		return id, api.ErrParseResourceID
-// 	}
-// 	return oid, nil
-// }

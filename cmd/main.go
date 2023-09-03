@@ -24,7 +24,6 @@ type Config struct {
 }
 
 var (
-	// ConfigFile = "/Users/jiangkai/Projects/jyjiangkai/stat/deploy/docker-compose/config/server.yaml"
 	ConfigFile = "config/server.yaml"
 )
 
@@ -80,10 +79,11 @@ func main() {
 		controller.NewUserController(userService),
 	)
 
-	// collectorService := services.NewCollectorService(cli)
-	// if err = collectorService.Start(); err != nil {
-	// 	panic("failed to start collector service: " + err.Error())
+	// refreshService := services.NewRefreshService(cli)
+	// if err = refreshService.Start(); err != nil {
+	// 	panic("failed to start refresh service: " + err.Error())
 	// }
+
 	// router.RegisterCollectRouter(
 	// 	e.Group("/collect"),
 	// 	controller.NewCollectorController(collectorService),

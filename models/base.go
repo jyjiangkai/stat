@@ -10,13 +10,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-const (
-	UserKindOfActive  string = "active"
-	UserKindOfCreated string = "created"
-	UserKindOfUsed    string = "used"
-	UserKindOfPaid    string = "paid"
-)
-
 func NewBase(ctx context.Context) cloud.Base {
 	return cloud.Base{
 		ID:        primitive.NewObjectID(),
@@ -26,19 +19,6 @@ func NewBase(ctx context.Context) cloud.Base {
 		UpdatedBy: utils.GetUserID(ctx),
 	}
 }
-
-// type Base struct {
-// 	ID        primitive.ObjectID `json:"id" bson:"_id"`
-// 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
-// 	UpdatedAt time.Time          `json:"updated_at,omitempty" bson:"updated_at"`
-// 	CreatedBy string             `json:"created_by,omitempty" bson:"created_by"`
-// 	UpdatedBy string             `json:"updated_by,omitempty" bson:"updated_by"`
-// 	Reg       string             `json:"region,omitempty" bson:"region"`
-// }
-
-// func (b Base) ObjectID() primitive.ObjectID {
-// 	return b.ID
-// }
 
 type Organization struct {
 	cloud.Base `json:",inline" bson:",inline"`

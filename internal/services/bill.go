@@ -9,12 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (cs *CollectorService) getBills(ctx context.Context, oid string) (*models.Bills, error) {
-	aiBill, err := cs.getAIBill(ctx, oid)
+func (rs *RefreshService) getBills(ctx context.Context, oid string, now time.Time) (*models.Bills, error) {
+	aiBill, err := rs.getAIBill(ctx, oid, now)
 	if err != nil {
 		return nil, err
 	}
-	connectBill, err := cs.getConnectBill(ctx, oid)
+	connectBill, err := rs.getConnectBill(ctx, oid, now)
 	if err != nil {
 		return nil, err
 	}
@@ -24,8 +24,8 @@ func (cs *CollectorService) getBills(ctx context.Context, oid string) (*models.B
 	}, nil
 }
 
-func (cs *CollectorService) getConnectBill(ctx context.Context, oid string) (*models.ConnectBills, error) {
-	bills, err := cs.getConnectBills(ctx, oid)
+func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now time.Time) (*models.ConnectBills, error) {
+	bills, err := rs.getConnectBills(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,6 @@ func (cs *CollectorService) getConnectBill(ctx context.Context, oid string) (*mo
 		}
 		stat.Total += bills[idx].UsageNum
 	}
-	now := time.Now()
 	yesterday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
 	if value, ok := stat.Items[yesterday]; ok {
 		stat.Yesterday = value
@@ -47,22 +46,22 @@ func (cs *CollectorService) getConnectBill(ctx context.Context, oid string) (*mo
 	return stat, nil
 }
 
-func (cs *CollectorService) getAIBill(ctx context.Context, oid string) (*models.AIBills, error) {
-	bills, err := cs.getAIBills(ctx, oid)
+func (rs *RefreshService) getAIBill(ctx context.Context, oid string, now time.Time) (*models.AIBills, error) {
+	bills, err := rs.getAIBills(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
 	stat := models.NewAIBill()
 	for idx := range bills {
+		credit := bills[idx].Usage.ChatGPT35 + 20*bills[idx].Usage.ChatGPT4
 		billTime := toBillTimeForAI(bills[idx].CollectedAt)
 		if _, ok := stat.Items[billTime]; ok {
-			stat.Items[billTime] += bills[idx].Usage.Credits
+			stat.Items[billTime] += credit
 		} else {
-			stat.Items[billTime] = bills[idx].Usage.Credits
+			stat.Items[billTime] = credit
 		}
-		stat.Total += bills[idx].Usage.Credits
+		stat.Total += credit
 	}
-	now := time.Now()
 	yesterday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
 	if value, ok := stat.Items[yesterday]; ok {
 		stat.Yesterday = value
@@ -70,11 +69,15 @@ func (cs *CollectorService) getAIBill(ctx context.Context, oid string) (*models.
 	return stat, nil
 }
 
-func (cs *CollectorService) getAIBills(ctx context.Context, user string) ([]*cloud.AIBill, error) {
+func (rs *RefreshService) getAIBills(ctx context.Context, oid string) ([]*cloud.AIBill, error) {
 	query := bson.M{
-		"user_id": user,
+		"user_id": oid,
+		// "collected_at": bson.M{
+		// 	"$gte": start,
+		// 	"$lte": end,
+		// },
 	}
-	cursor, err := cs.aiBillColl.Find(ctx, query)
+	cursor, err := rs.aiBillColl.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +96,15 @@ func (cs *CollectorService) getAIBills(ctx context.Context, user string) ([]*clo
 	return bills, nil
 }
 
-func (cs *CollectorService) getConnectBills(ctx context.Context, oid string) ([]*cloud.Bill, error) {
+func (rs *RefreshService) getConnectBills(ctx context.Context, oid string) ([]*cloud.Bill, error) {
 	query := bson.M{
 		"user_id": oid,
+		// "collected_at": bson.M{
+		// 	"$gte": start,
+		// 	"$lte": end,
+		// },
 	}
-	cursor, err := cs.billColl.Find(ctx, query)
+	cursor, err := rs.billColl.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}

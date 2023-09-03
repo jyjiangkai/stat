@@ -73,20 +73,23 @@ func FindOne(ctx context.Context, coll *mongo.Collection) error {
 }
 
 func Aggregate(ctx context.Context, coll *mongo.Collection) error {
-	ct := time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC)
+	// ct := time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC)
 	pipeline := mongo.Pipeline{
 		{
 			{"$match", bson.D{
 				// {"user_id", utils.GetUserID(ctx)},
-				{"collected_at", bson.D{
-					{"$gte", ct},
-					//{"$lte", endTime},
-				}},
+				// {"collected_at", bson.D{
+				// 	{"$gte", ct},
+				// 	//{"$lte", endTime},
+				// }},
 			}},
 		},
 		{
 			{"$group", bson.D{
-				{"_id", "$user_id"},
+				// {"_id", "$user_id"},
+				// {"m3", {"$sum": "$usage.chatgpt_3_5"}},
+				// {"totalChatGPT_4", {"$sum", "$usage.chatgpt_4"}},
+				// {"_id", "$user_id"},
 				{"usage_num", bson.D{
 					{"$sum", "$usage_num"},
 				}},

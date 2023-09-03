@@ -12,12 +12,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func (cs *CollectorService) getClass(ctx context.Context, oid string) (*models.Class, error) {
-	aiLevel, err := cs.getLevel(ctx, oid, "ai")
+func (rs *RefreshService) getClass(ctx context.Context, oid string, now time.Time) (*models.Class, error) {
+	aiLevel, err := rs.getLevel(ctx, oid, "ai", now)
 	if err != nil {
 		return nil, err
 	}
-	connectLevel, err := cs.getLevel(ctx, oid, "cloud")
+	connectLevel, err := rs.getLevel(ctx, oid, "cloud", now)
 	if err != nil {
 		return nil, err
 	}
@@ -27,8 +27,7 @@ func (cs *CollectorService) getClass(ctx context.Context, oid string) (*models.C
 	}, nil
 }
 
-func (cs *CollectorService) getLevel(ctx context.Context, oid string, kind string) (*models.Level, error) {
-	now := time.Now()
+func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string, now time.Time) (*models.Level, error) {
 	query := bson.M{
 		"created_by": oid,
 		"plan.kind":  kind,
@@ -40,7 +39,7 @@ func (cs *CollectorService) getLevel(ctx context.Context, oid string, kind strin
 		},
 	}
 
-	result := cs.quotaColl.FindOne(ctx, query)
+	result := rs.quotaColl.FindOne(ctx, query)
 	if result.Err() != nil {
 		if result.Err() == mongo.ErrNoDocuments {
 			return &models.Level{

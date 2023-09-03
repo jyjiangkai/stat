@@ -14,27 +14,27 @@
 
 package controller
 
-import (
-	"github.com/gin-gonic/gin"
+// import (
+// 	"github.com/gin-gonic/gin"
 
-	"github.com/jyjiangkai/stat/internal/services"
-)
+// 	"github.com/jyjiangkai/stat/internal/services"
+// )
 
-type CollectorController struct {
-	svc *services.CollectorService
-}
+// type CollectorController struct {
+// 	svc *services.CollectorService
+// }
 
-func NewCollectorController(handler *services.CollectorService) *CollectorController {
-	return &CollectorController{
-		svc: handler,
-	}
-}
+// func NewCollectorController(handler *services.CollectorService) *CollectorController {
+// 	return &CollectorController{
+// 		svc: handler,
+// 	}
+// }
 
-func (cc *CollectorController) Collect(ctx *gin.Context) (any, error) {
-	kind, _ := ctx.GetQuery(QueryOfUserKind)
-	err := cc.svc.Collect(ctx, kind)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
-}
+// func (cc *CollectorController) Collect(ctx *gin.Context) (any, error) {
+// 	kind, _ := ctx.GetQuery(QueryOfUserKind)
+// 	err := cc.svc.Collect(ctx, kind)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return nil, nil
+// }

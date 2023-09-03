@@ -2,26 +2,25 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/jyjiangkai/stat/api"
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/log"
 	"github.com/jyjiangkai/stat/models"
 	"github.com/jyjiangkai/stat/models/cloud"
+	"github.com/jyjiangkai/stat/utils"
 )
 
 const (
-	// Prod         = "vanus-cloud-prod"
-	billCollName = "bills"
+	BatchSize = 100
 )
 
-type CollectorService struct {
+type RefreshService struct {
 	mgoCli              *mongo.Client
 	connectionColl      *mongo.Collection
 	userColl            *mongo.Collection
@@ -31,12 +30,13 @@ type CollectorService struct {
 	aiAppColl           *mongo.Collection
 	aiUploadColl        *mongo.Collection
 	aiKnowledgeBaseColl *mongo.Collection
-	statisticColl       *mongo.Collection
+	statColl            *mongo.Collection
+	wg                  sync.WaitGroup
 	closeC              chan struct{}
 }
 
-func NewCollectorService(cli *mongo.Client) *CollectorService {
-	return &CollectorService{
+func NewRefreshService(cli *mongo.Client) *RefreshService {
+	return &RefreshService{
 		mgoCli:              cli,
 		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
 		userColl:            cli.Database(db.GetDatabaseName()).Collection("users"),
@@ -46,130 +46,127 @@ func NewCollectorService(cli *mongo.Client) *CollectorService {
 		aiAppColl:           cli.Database(db.GetDatabaseName()).Collection("ai_app"),
 		aiUploadColl:        cli.Database(db.GetDatabaseName()).Collection("ai_upload"),
 		aiKnowledgeBaseColl: cli.Database(db.GetDatabaseName()).Collection("ai_knowledge_bases"),
-		statisticColl:       cli.Database(db.GetDatabaseName()).Collection("statistics"),
+		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
 		closeC:              make(chan struct{}),
 	}
 }
 
-func (cs *CollectorService) Start() error {
+func (rs *RefreshService) Start() error {
 	ctx := context.Background()
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		defer log.Warn(ctx).Err(nil).Msg("refresh routine exit")
+		for {
+			select {
+			case <-rs.closeC:
+				log.Info(ctx).Msg("refresh service stopped.")
+				return
+			case <-ticker.C:
+				now := time.Now()
+				if now.Hour() == 2 {
+					log.Info(ctx).Msgf("start refresh user stat at: %+v\n", now)
+					err := rs.Refresh(ctx, now)
+					if err != nil {
+						log.Warn(ctx).Msgf("refresh user stat failed at %+v\n", now)
+					}
+				}
+			}
+		}
+	}()
+	return nil
+}
 
-	now := time.Now()
-	log.Info(ctx).Msgf("start collect at: %+v\n", now)
-	err := cs.Collect(ctx, "full")
+func (rs *RefreshService) Stop() error {
+	return nil
+}
+
+func (rs *RefreshService) Refresh(ctx context.Context, now time.Time) error {
+	query := bson.M{}
+	cnt, err := rs.userColl.CountDocuments(ctx, query)
 	if err != nil {
-		log.Error(ctx).Err(err).Msgf("Collect user stat failed at %+v\n", now)
-	} else {
-		log.Info(ctx).Msgf("Collect user stat success at %+v\n", now)
-	}
-
-	// go func() {
-	// 	ticker := time.NewTicker(time.Hour)
-	// 	defer ticker.Stop()
-	// 	defer log.Warn(ctx).Err(nil).Msg("collect routine exit")
-	// 	for {
-	// 		select {
-	// 		case <-cs.closeC:
-	// 			log.Info(ctx).Msg("Bill Service stopped.")
-	// 			return
-	// 		case <-ticker.C:
-	// 			now := time.Now()
-	// 			if now.Hour() == 2 {
-	// 				log.Info(ctx).Msgf("start collect at: %+v\n", now)
-	// 				err := cs.Collect(ctx, "")
-	// 				if err != nil {
-	// 					log.Warn(ctx).Msgf("Collect bill failed at %+v\n", now)
-	// 				} else {
-	// 					log.Info(ctx).Msgf("Collect bill success at %+v\n", now)
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }()
-	return nil
-}
-
-func (cs *CollectorService) Stop() error {
-	return nil
-}
-
-func (cs *CollectorService) Collect(ctx context.Context, kind string) error {
-	if kind == "" {
-		log.Error(ctx).Msgf("collect kind is null")
-		return api.ErrInvalidParameter
-	}
-
-	var err error
-	switch kind {
-	case "full":
-		err = cs.fullCollect(ctx)
-		if err != nil {
-			return err
-		}
-	case "incremental":
-		err = cs.incrementalCollect(ctx)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (cs *CollectorService) fullCollect(ctx context.Context) error {
-	var (
-		skip int64 = 0
-		// limit int64  = 1
-		sort bson.M = bson.M{"created_at": 1}
-	)
-
-	start := time.Date(2023, 8, 31, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC)
-	query := bson.M{
-		"created_at": bson.M{
-			"$gte": start,
-			"$lte": end,
-		},
-	}
-	// query := bson.M{
-	// 	"oidc_id": "google-oauth2|113887992409437297567",
-	// }
-	opt := options.FindOptions{
-		// Limit: &limit,
-		Skip: &skip,
-		Sort: sort,
-	}
-	cursor, err := cs.userColl.Find(ctx, query, &opt)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			log.Warn(ctx).Err(err).Msg("failed to find user cause no documents")
-			return nil
-		}
 		return err
+	}
+	log.Info(ctx).Msgf("current collection time is %+v, with a total of %d users\n", now, cnt)
+	step := int64(BatchSize)
+	goroutines := 0
+	for i := int64(0); i < cnt; {
+		start := i
+		end := i + step
+		if end > cnt {
+			end = cnt
+		}
+		rs.wg.Add(1)
+		goroutines += 1
+		go rs.rangeRefresh(ctx, start, end, now)
+		i += step
+	}
+	log.Info(ctx).Msgf("launch a total of %d goroutines, with each goroutine assigned %d user collection tasks\n", goroutines, step)
+	log.Info(ctx).Msg("starting collection, please wait...")
+	rs.wg.Wait()
+	log.Info(ctx).Msgf("finished user data collection, spent %d seconds, updated %d users\n", time.Since(now).Seconds(), cnt)
+	return nil
+}
+
+func (rs *RefreshService) rangeRefresh(ctx context.Context, start int64, end int64, now time.Time) {
+	var (
+		reterr error
+		cnt    int    = 0
+		skip   int64  = start
+		limit  int64  = end - start
+		sort   bson.M = bson.M{"created_at": 1}
+	)
+	// log.Info(ctx).Msgf("start goroutine for range refresh, start: %d, end: %d\n", start, end)
+	defer rs.wg.Done()
+	defer func() {
+		if reterr != nil {
+			log.Error(ctx).Err(reterr).Int64("start", start).Int64("end", end).Msg("failed to refresh users")
+		}
+		log.Info(ctx).Msgf("finish goroutine for range[%d, %d] refresh, %d completed, %d remaining.\n", start, end, cnt, (limit - int64(cnt)))
+	}()
+	query := bson.M{}
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := rs.userColl.Find(ctx, query, &opt)
+	if err != nil {
+		reterr = err
+		log.Error(ctx).Err(err).Msg("failed to find user")
+		return
 	}
 	defer func() {
 		_ = cursor.Close(ctx)
 	}()
 
-	cnt := 0
 	for cursor.Next(ctx) {
-		start := time.Now()
 		user := &cloud.User{}
 		if err = cursor.Decode(user); err != nil {
-			return err
+			reterr = err
+			log.Error(ctx).Err(err).Msg("failed to decode user")
+			return
 		}
 		cnt += 1
-		bills, err := cs.getBills(ctx, user.OID)
+		bills, err := rs.getBills(ctx, user.OID, now)
 		if err != nil {
-			return err
+			reterr = err
+			log.Error(ctx).Err(err).Msg("failed to get bills")
+			return
 		}
-		class, err := cs.getClass(ctx, user.OID)
+		class, err := rs.getClass(ctx, user.OID, now)
 		if err != nil {
-			return err
+			reterr = err
+			log.Error(ctx).Err(err).Msg("failed to get class")
+			return
 		}
-		usage, err := cs.getUsages(ctx, user.OID)
+		usage, err := rs.getUsages(ctx, user.OID)
 		if err != nil {
-			return err
+			reterr = err
+			log.Error(ctx).Err(err).Msg("failed to get usages")
+			return
 		}
+		user.Base.UpdatedAt = now
 		statUser := &models.User{
 			Base:         user.Base,
 			OID:          user.OID,
@@ -185,16 +182,162 @@ func (cs *CollectorService) fullCollect(ctx context.Context) error {
 			Bills:        bills,
 			Usages:       usage,
 		}
-		_, err = cs.statisticColl.InsertOne(ctx, statUser)
-		if err != nil {
-			return db.HandleDBError(err)
+		query := bson.M{
+			"_id": user.ID,
 		}
-		log.Info(ctx).Msgf("[%d] spent %d ms to statistic user %s\n", cnt, time.Since(start).Milliseconds(), user.OID)
+		opts := &options.ReplaceOptions{
+			Upsert: utils.PtrBool(true),
+		}
+		_, err = rs.statColl.ReplaceOne(ctx, query, statUser, opts)
+		if err != nil {
+			reterr = err
+			log.Error(ctx).Err(err).Msg("failed to insert stat user")
+			return
+		}
+		// log.Info(ctx).Msgf("[%d] spent %d ms to refresh user stat: %s\n", cnt, time.Since(start).Milliseconds(), user.OID)
 	}
-	fmt.Printf("success to stat users, cnt: %d\n", cnt)
-	return nil
 }
 
-func (cs *CollectorService) incrementalCollect(ctx context.Context) error {
-	return nil
+func (rs *RefreshService) getLastRefreshTime(ctx context.Context) (time.Time, error) {
+	var (
+		sortBy string    = "updated_at"
+		now    time.Time = time.Now()
+	)
+	query := bson.M{}
+	opt := options.FindOneOptions{
+		Sort: bson.M{sortBy: -1},
+	}
+	result := rs.statColl.FindOne(ctx, query, &opt)
+	if result.Err() != nil {
+		if result.Err() == mongo.ErrNoDocuments {
+			log.Error(ctx).Err(result.Err()).Msg("get last refresh stat but no document")
+		}
+		return now, result.Err()
+	}
+	user := &models.User{}
+	if err := result.Decode(user); err != nil {
+		return now, db.HandleDBError(err)
+	}
+	return user.UpdatedAt, nil
+}
+
+func (rs *RefreshService) GetRegisteredUserList(ctx context.Context, start, end time.Time) ([]string, error) {
+	users := make([]string, 0)
+	query := bson.M{
+		"created_at": bson.M{
+			"$gte": start,
+			"$lte": end,
+		},
+	}
+	cursor, err := rs.userColl.Find(ctx, query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Err(err).Msg("find user but no documents")
+			return users, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	for cursor.Next(ctx) {
+		user := &cloud.User{}
+		if err = cursor.Decode(user); err != nil {
+			return nil, err
+		}
+		users = append(users, user.OID)
+	}
+	return users, nil
+}
+
+func (rs *RefreshService) GetAIBillChangedUserList(ctx context.Context, start, end time.Time) ([]string, error) {
+	users := make([]string, 0)
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"collected_at", bson.D{
+					{"$gte", start},
+					{"$lte", end},
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$user_id"},
+				{"usage", bson.D{
+					{"$sum", bson.D{
+						{"$add", []interface{}{
+							"$usage.chatgpt_3_5",
+							bson.M{"$multiply": []interface{}{"$usage.chatgpt_4", 20}},
+						}},
+					}},
+				}},
+			}},
+		},
+	}
+
+	type usageGroup struct {
+		UserID string `bson:"_id"`
+		Usage  uint64 `bson:"usage"`
+	}
+	cursor, err := rs.aiBillColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Err(err).Msg("find ai bills but no documents")
+			return users, nil
+		}
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var usageGroup usageGroup
+		if err = cursor.Decode(&usageGroup); err != nil {
+			return nil, err
+		}
+		users = append(users, usageGroup.UserID)
+	}
+	return users, nil
+}
+
+func (rs *RefreshService) GetConnectBillChangedUserList(ctx context.Context, start, end time.Time) ([]string, error) {
+	users := make([]string, 0)
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"collected_at", bson.D{
+					{"$gte", start},
+					{"$lte", end},
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$user_id"},
+				{"usage", bson.D{
+					{"$sum", "$usage_num"},
+				}},
+			}},
+		},
+	}
+	type usageGroup struct {
+		UserID string `bson:"_id"`
+		Usage  uint64 `bson:"usage"`
+	}
+	cursor, err := rs.billColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Err(err).Msg("find connect bills but no documents")
+			return users, nil
+		}
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var usageGroup usageGroup
+		if err = cursor.Decode(&usageGroup); err != nil {
+			return nil, err
+		}
+		users = append(users, usageGroup.UserID)
+	}
+	return users, nil
 }
