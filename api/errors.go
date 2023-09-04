@@ -24,6 +24,7 @@ var (
 	ErrUnsupportedCurrency     = newErrorMessage(http.StatusBadRequest, 4115, "unsupported currency")
 	ErrUnsupportedMethod       = newErrorMessage(http.StatusBadRequest, 4116, "unsupported method")
 	ErrVerificationFailed      = newErrorMessage(http.StatusBadRequest, 4117, "verification failed")
+	ErrUnsupportedKind         = newErrorMessage(http.StatusBadRequest, 4118, "unsupported kind")
 
 	ErrUnauthorized         = newErrorMessage(http.StatusUnauthorized, 4201, "unauthorized")
 	ErrIDTokenNotFound      = newErrorMessage(http.StatusForbidden, 4301, "no id_token field in oauth2 token")

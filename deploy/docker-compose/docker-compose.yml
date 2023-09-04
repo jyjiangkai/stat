@@ -4,9 +4,9 @@ services:
     container_name: stat
     image: public.ecr.aws/vanus/stat:jiangkai
     expose:
-      - 8080
+      - 8088
     ports:
-      - "8080:8080"
+      - "8088:8088"
     volumes:
       - ./config/server.yaml:/vanus-cloud/config/server.yaml
     networks:

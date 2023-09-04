@@ -33,3 +33,17 @@ func GetMonthBeginTime(t time.Time) time.Time {
 	endOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, t.Location())
 	return endOfMonth
 }
+
+func ToBillTimeForConnect(t time.Time) time.Time {
+	return t.Add(-24 * time.Hour)
+}
+
+func ToBillTimeForAI(t time.Time) time.Time {
+	var real time.Time
+	if t.Hour() == 0 {
+		real = t.Add(-24 * time.Hour)
+	} else {
+		real = t
+	}
+	return time.Date(real.Year(), real.Month(), real.Day(), 0, 0, 0, 0, time.UTC)
+}

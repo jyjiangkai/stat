@@ -102,5 +102,5 @@ func main() {
 	if err = userService.Stop(); err != nil {
 		log.Warn(ctx).Err(err).Msg("error when stop UserService")
 	}
-	log.Info(ctx).Msg("the Vanus Statistics Server has been shutdown gracefully")
+	log.Info(ctx).Msg("the Vanus Stat Server has been shutdown gracefully")
 }

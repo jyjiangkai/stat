@@ -6,3 +6,7 @@ const (
 	HTTPSSchema = "https://"
 	HTTPSchema  = "http://"
 )
+
+const (
+	NumberOfHistogramSamples = 90
+)
