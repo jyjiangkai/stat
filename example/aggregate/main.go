@@ -9,6 +9,7 @@ import (
 	"github.com/jyjiangkai/stat/log"
 	"github.com/jyjiangkai/stat/models/cloud"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -35,7 +36,7 @@ func main() {
 		_ = cli.Disconnect(ctx)
 	}()
 
-	billColl := cli.Database(db.GetDatabaseName()).Collection("bills")
+	billColl := cli.Database(db.GetDatabaseName()).Collection("ai_bills")
 
 	// FindOne(ctx, billColl)
 	Aggregate(ctx, billColl)
@@ -74,37 +75,76 @@ func FindOne(ctx context.Context, coll *mongo.Collection) error {
 
 func Aggregate(ctx context.Context, coll *mongo.Collection) error {
 	// ct := time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC)
+	id, _ := primitive.ObjectIDFromHex("64c7181cc7f602af76f1ca21")
 	pipeline := mongo.Pipeline{
 		{
 			{"$match", bson.D{
-				// {"user_id", utils.GetUserID(ctx)},
-				// {"collected_at", bson.D{
-				// 	{"$gte", ct},
-				// 	//{"$lte", endTime},
-				// }},
+				{"app_id", id},
+			}},
+		},
+		// {
+		// 	{"$project", bson.D{
+		// 		{"adjustedDate", bson.D{
+		// 			{"$subtract", []interface{}{"$collected_at", 86400000}},
+		// 			{"usage_num", 1},
+		// 		}},
+		// 	}},
+		// },
+		// {
+		// 	{"$project", bson.D{
+		// 		{"date", bson.D{
+		// 			{"$dateToString", bson.M{"format": "%Y-%m-%d", "date": "$adjustedDate"}},
+		// 		}},
+		// 		{"usage_num", 1},
+		// 	}},
+		// },
+		{
+			{"$project", bson.D{
+				{"date", bson.D{
+					{"$dateToString", bson.M{"format": "%Y-%m-%d", "date": "$collected_at"}},
+				}},
+				{"chatgpt_3_5", "$usage.chatgpt_3_5"},
+				{"chatgpt_4", "$usage.chatgpt_4"},
 			}},
 		},
 		{
 			{"$group", bson.D{
-				// {"_id", "$user_id"},
-				// {"m3", {"$sum": "$usage.chatgpt_3_5"}},
-				// {"totalChatGPT_4", {"$sum", "$usage.chatgpt_4"}},
-				// {"_id", "$user_id"},
-				{"usage_num", bson.D{
-					{"$sum", "$usage_num"},
-				}},
+				{"_id", "$date"},
+				{"totalChatGPT_3_5", bson.M{"$sum": "$chatgpt_3_5"}},
+				{"totalChatGPT_4", bson.M{"$sum": "$chatgpt_4"}},
+			}},
+		},
+		// {
+		// 	{"$group", bson.D{
+		// 		{"_id", "$date"},
+		// 		{"usage", bson.D{
+		// 			{"$sum", bson.D{
+		// 				{"$add", []interface{}{
+		// 					"$usage.chatgpt_3_5",
+		// 					bson.M{"$multiply": []interface{}{"$usage.chatgpt_4", 20}},
+		// 				}},
+		// 			}},
+		// 		}},
+		// 	}},
+		// },
+		{
+			{"$sort", bson.D{
+				{"_id", -1},
 			}},
 		},
 	}
 	type usageGroup struct {
-		UserID   string `bson:"_id"`
-		UsageNum uint64 `bson:"usage_num"`
+		Date      string `bson:"_id"`
+		ChatGPT35 uint64 `bson:"totalChatGPT_3_5"`
+		ChatGPT4  uint64 `bson:"totalChatGPT_4"`
+		Usage     uint64 `bson:"usage"`
 	}
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			log.Warn(ctx).Msg("no documents")
 		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
 		return err
 	}
 	defer cursor.Close(ctx)

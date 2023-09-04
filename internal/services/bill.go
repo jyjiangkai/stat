@@ -6,6 +6,7 @@ import (
 
 	"github.com/jyjiangkai/stat/models"
 	"github.com/jyjiangkai/stat/models/cloud"
+	"github.com/jyjiangkai/stat/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -31,7 +32,7 @@ func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now ti
 	}
 	stat := models.NewConnectBill()
 	for idx := range bills {
-		billTime := toBillTimeForConnect(bills[idx].CollectedAt)
+		billTime := utils.ToBillTimeForConnect(bills[idx].CollectedAt)
 		if _, ok := stat.Items[billTime]; ok {
 			stat.Items[billTime] += bills[idx].UsageNum
 		} else {
@@ -54,7 +55,7 @@ func (rs *RefreshService) getAIBill(ctx context.Context, oid string, now time.Ti
 	stat := models.NewAIBill()
 	for idx := range bills {
 		credit := bills[idx].Usage.ChatGPT35 + 20*bills[idx].Usage.ChatGPT4
-		billTime := toBillTimeForAI(bills[idx].CollectedAt)
+		billTime := utils.ToBillTimeForAI(bills[idx].CollectedAt)
 		if _, ok := stat.Items[billTime]; ok {
 			stat.Items[billTime] += credit
 		} else {
@@ -121,18 +122,4 @@ func (rs *RefreshService) getConnectBills(ctx context.Context, oid string) ([]*c
 		bills = append(bills, bill)
 	}
 	return bills, nil
-}
-
-func toBillTimeForConnect(t time.Time) time.Time {
-	return t.Add(-24 * time.Hour)
-}
-
-func toBillTimeForAI(t time.Time) time.Time {
-	var real time.Time
-	if t.Hour() == 0 {
-		real = t.Add(-24 * time.Hour)
-	} else {
-		real = t
-	}
-	return time.Date(real.Year(), real.Month(), real.Day(), 0, 0, 0, 0, time.UTC)
 }

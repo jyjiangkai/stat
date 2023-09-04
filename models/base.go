@@ -89,8 +89,20 @@ type ConnectUsages struct {
 }
 
 type UserDetail struct {
-	Apps        []*App        `json:"apps" bson:"apps"`
+	AI      *UserAIDetail      `json:"ai" bson:"ai"`
+	Connect *UserConnectDetail `json:"connect" bson:"connect"`
+}
+
+type UserAIDetail struct {
+	TotalUsage uint64 `json:"total_usage" bson:"total_usage"`
+	Apps       []*App `json:"apps" bson:"apps"`
+	Bills      []Bill `json:"bills" bson:"bills"`
+}
+
+type UserConnectDetail struct {
+	TotalUsage  uint64        `json:"total_usage" bson:"total_usage"`
 	Connections []*Connection `json:"connections" bson:"connections"`
+	Bills       []Bill        `json:"bills" bson:"bills"`
 }
 
 type App struct {
@@ -100,7 +112,10 @@ type App struct {
 	Model           string   `json:"model" bson:"model"`
 	Status          string   `json:"status" bson:"status"`
 	TotalUsage      uint64   `json:"total_usage" bson:"total_usage"`
-	KnowledgeBaseID []string `json:"-" bson:"knowledge_base_id"`
+	Prompts         int64    `json:"prompts" bson:"prompts"`
+	Uploads         int64    `json:"uploads" bson:"uploads"`
+	KnowledgeBaseID []string `json:"knowledge_base_id" bson:"knowledge_base_id"`
+	Bills           []Bill   `json:"bills" bson:"bills"`
 }
 
 type Connection struct {
@@ -113,8 +128,14 @@ type Connection struct {
 	Subscriptions []primitive.ObjectID `json:"subscriptions" bson:"subscriptions"`
 	SourceID      primitive.ObjectID   `json:"source_id" bson:"source_id"`
 	SinkID        primitive.ObjectID   `json:"sink_id" bson:"sink_id"`
-	SourceType    primitive.ObjectID   `json:"source_type" bson:"source_type"`
-	SinkType      primitive.ObjectID   `json:"sink_type" bson:"sink_type"`
+	SourceType    string               `json:"source_type" bson:"source_type"`
+	SinkType      string               `json:"sink_type" bson:"sink_type"`
+	Bills         []Bill               `json:"bills" bson:"bills"`
+}
+
+type Bill struct {
+	Date  time.Time `json:"_id" bson:"_id"`
+	Usage uint64    `json:"usage" bson:"usage"`
 }
 
 type RegionInfo struct {
