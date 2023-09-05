@@ -79,15 +79,10 @@ func main() {
 		controller.NewUserController(userService),
 	)
 
-	// refreshService := services.NewRefreshService(cli)
-	// if err = refreshService.Start(); err != nil {
-	// 	panic("failed to start refresh service: " + err.Error())
-	// }
-
-	// router.RegisterCollectRouter(
-	// 	e.Group("/collect"),
-	// 	controller.NewCollectorController(collectorService),
-	// )
+	refreshService := services.NewRefreshService(cli)
+	if err = refreshService.Start(); err != nil {
+		panic("failed to start refresh service: " + err.Error())
+	}
 
 	go func() {
 		if err = eng.Run(fmt.Sprintf("0.0.0.0:%d", cfg.Port)); err != nil {
