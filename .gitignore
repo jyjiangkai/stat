@@ -1,0 +1,32 @@
+tmp
+
+# macOS
+.DS_Store
+
+# Binaries for programs and plugins
+bin
+
+# Visual Studio Code
+.vscode/*
+#!.vscode/settings.json
+#!.vscode/tasks.json
+#!.vscode/launch.json
+#!.vscode/extensions.json
+#!.vscode/*.code-snippets
+__debug_bin
+
+# JetBrains
+.idea/
+
+# configuration file
+/config/*.json
+/config/*.yml
+/config/*.yaml
+
+*.xml
+
+*coverage*
+
+.run
+
+*.log
