@@ -68,8 +68,9 @@ func (rs *RefreshService) Start() error {
 					log.Info(ctx).Msgf("start refresh user stat at: %+v\n", now)
 					err := rs.Refresh(ctx, now)
 					if err != nil {
-						log.Warn(ctx).Msgf("refresh user stat failed at %+v\n", now)
+						log.Error(ctx).Err(err).Msgf("refresh user stat failed at %+v\n", time.Now())
 					}
+					log.Info(ctx).Msgf("finish refresh user stat at: %+v\n", time.Now())
 				}
 			}
 		}
@@ -104,7 +105,7 @@ func (rs *RefreshService) Refresh(ctx context.Context, now time.Time) error {
 	log.Info(ctx).Msgf("launch a total of %d goroutines, with each goroutine assigned %d user collection tasks\n", goroutines, step)
 	log.Info(ctx).Msg("starting collection, please wait...")
 	rs.wg.Wait()
-	log.Info(ctx).Msgf("finished user data collection, spent %d seconds, updated %d users\n", time.Since(now).Seconds(), cnt)
+	log.Info(ctx).Msgf("finished user data collection, spent %f seconds, updated %d users\n", time.Since(now).Seconds(), cnt)
 	return nil
 }
 
