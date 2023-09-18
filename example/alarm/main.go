@@ -14,7 +14,7 @@ import (
 var (
 	Database string = "vanus-cloud-prod"
 	Username string = "vanus-cloud-prod-rw"
-	Password string = "K1Cr0WGQca396QLu"
+	Password string = ""
 	Address  string = "cluster1.odfrc.mongodb.net"
 )
 
