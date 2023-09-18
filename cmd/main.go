@@ -14,13 +14,15 @@ import (
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
 	"github.com/jyjiangkai/stat/log"
+	"github.com/jyjiangkai/stat/monitor"
 	"github.com/jyjiangkai/stat/router"
 	"github.com/jyjiangkai/stat/utils"
 )
 
 type Config struct {
-	Port int       `yaml:"port"`
-	DB   db.Config `yaml:"mongodb"`
+	Port    int            `yaml:"port"`
+	DB      db.Config      `yaml:"mongodb"`
+	Monitor monitor.Config `yaml:"monitor"`
 }
 
 var (
@@ -54,6 +56,8 @@ func main() {
 	defer func() {
 		_ = cli.Disconnect(ctx)
 	}()
+
+	monitor.Init(ctx, cfg.Monitor)
 
 	lg := logger.SetLogger(
 		logger.WithLogger(log.CustomLogger),
