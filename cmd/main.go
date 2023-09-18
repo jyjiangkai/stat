@@ -88,6 +88,11 @@ func main() {
 		panic("failed to start refresh service: " + err.Error())
 	}
 
+	alarmService := services.NewAlarmService(cli)
+	if err = alarmService.Start(); err != nil {
+		panic("failed to start alarm service: " + err.Error())
+	}
+
 	go func() {
 		if err = eng.Run(fmt.Sprintf("0.0.0.0:%d", cfg.Port)); err != nil {
 			panic(fmt.Sprintf("failed to start HTTP server: %s", err))
