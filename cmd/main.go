@@ -14,13 +14,15 @@ import (
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
 	"github.com/jyjiangkai/stat/log"
+	"github.com/jyjiangkai/stat/monitor"
 	"github.com/jyjiangkai/stat/router"
 	"github.com/jyjiangkai/stat/utils"
 )
 
 type Config struct {
-	Port int       `yaml:"port"`
-	DB   db.Config `yaml:"mongodb"`
+	Port    int            `yaml:"port"`
+	DB      db.Config      `yaml:"mongodb"`
+	Monitor monitor.Config `yaml:"monitor"`
 }
 
 var (
@@ -55,6 +57,8 @@ func main() {
 		_ = cli.Disconnect(ctx)
 	}()
 
+	monitor.Init(ctx, cfg.Monitor)
+
 	lg := logger.SetLogger(
 		logger.WithLogger(log.CustomLogger),
 	)
@@ -82,6 +86,11 @@ func main() {
 	refreshService := services.NewRefreshService(cli)
 	if err = refreshService.Start(); err != nil {
 		panic("failed to start refresh service: " + err.Error())
+	}
+
+	alarmService := services.NewAlarmService(cli)
+	if err = alarmService.Start(); err != nil {
+		panic("failed to start alarm service: " + err.Error())
 	}
 
 	go func() {
