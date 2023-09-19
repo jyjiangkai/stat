@@ -11,6 +11,12 @@ data:
       database: "vanus-cloud-prod"
       username: "vanus-cloud-prod-rw"
       password: ""
+    monitor:
+      enable: true
+      webhook_url: https://5i85z5qlisj2febb.connector.vanus.ai/api/v1/source/http/6503bd653d7bce3cbe51192c
+    mailchimp:
+      enable: false
+      webhook_url: https://0lj80uzusozxlooq.connector.vanus.ai/api/v1/source/http/650439c93f0b52737fe5b8d0
 ---
 apiVersion: v1
 kind: Service
@@ -52,7 +58,7 @@ spec:
         app: vanus-stat
     spec:
       containers:
-      - image: public.ecr.aws/vanus/stat:jiangkai
+      - image: public.ecr.aws/vanus/stat:latest
         imagePullPolicy: Always
         name: apiserver
         ports:

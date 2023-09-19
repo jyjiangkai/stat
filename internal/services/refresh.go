@@ -64,7 +64,7 @@ func (rs *RefreshService) Start() error {
 				return
 			case <-ticker.C:
 				now := time.Now()
-				if now.Hour() == 2 {
+				if now.Hour() == 1 {
 					log.Info(ctx).Msgf("start refresh user stat at: %+v\n", now)
 					err := rs.Refresh(ctx, now)
 					if err != nil {
