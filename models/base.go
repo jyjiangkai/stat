@@ -39,6 +39,7 @@ type User struct {
 	Class        *Class  `json:"class" bson:"class"`
 	Bills        *Bills  `json:"bills" bson:"bills"`
 	Usages       *Usages `json:"usages" bson:"usages"`
+	Cohort       *Cohort `json:"cohort" bson:"cohort"`
 }
 
 type Class struct {

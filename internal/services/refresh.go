@@ -167,6 +167,12 @@ func (rs *RefreshService) rangeRefresh(ctx context.Context, start int64, end int
 			log.Error(ctx).Err(err).Msg("failed to get usages")
 			return
 		}
+		cohort, err := rs.GetCohort(ctx, user)
+		if err != nil {
+			reterr = err
+			log.Error(ctx).Err(err).Msg("failed to get cohort")
+			return
+		}
 		user.Base.UpdatedAt = now
 		statUser := &models.User{
 			Base:         user.Base,
@@ -182,6 +188,7 @@ func (rs *RefreshService) rangeRefresh(ctx context.Context, start int64, end int
 			Class:        class,
 			Bills:        bills,
 			Usages:       usage,
+			Cohort:       cohort,
 		}
 		query := bson.M{
 			"_id": user.ID,
