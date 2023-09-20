@@ -1,20 +1,32 @@
+tmp
+
+# macOS
+.DS_Store
+
 # Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+bin
 
-# Test binary, built with `go test -c`
-*.test
+# Visual Studio Code
+.vscode/*
+#!.vscode/settings.json
+#!.vscode/tasks.json
+#!.vscode/launch.json
+#!.vscode/extensions.json
+#!.vscode/*.code-snippets
+__debug_bin
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Self
+# JetBrains
 .idea/
-.git/
-bin/
+
+# configuration file
+/config/*.json
+/config/*.yml
+/config/*.yaml
+
+*.xml
+
+*coverage*
+
+.run
+
+*.log
