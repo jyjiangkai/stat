@@ -38,6 +38,12 @@ func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now ti
 		} else {
 			stat.Items[billTime] = bills[idx].UsageNum
 		}
+		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfWeek {
+			stat.LastWeek += bills[idx].UsageNum
+		}
+		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfMonth {
+			stat.LastMonth += bills[idx].UsageNum
+		}
 		stat.Total += bills[idx].UsageNum
 	}
 	yesterday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
@@ -60,6 +66,12 @@ func (rs *RefreshService) getAIBill(ctx context.Context, oid string, now time.Ti
 			stat.Items[billTime] += credit
 		} else {
 			stat.Items[billTime] = credit
+		}
+		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfWeek {
+			stat.LastWeek += credit
+		}
+		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfMonth {
+			stat.LastMonth += credit
 		}
 		stat.Total += credit
 	}

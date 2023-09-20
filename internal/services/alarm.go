@@ -133,14 +133,11 @@ func (as *AlarmService) AlarmOfConnectUsage(ctx context.Context, now time.Time) 
 			return err
 		}
 		usage = append(usage, usageGroup)
-		log.Info(ctx).Msgf("success get usage group: %+v\n", usageGroup)
 	}
 	if len(usage) != 2 {
 		log.Error(ctx).Msgf("usage group len is %d\n", len(usage))
 		return err
 	}
-	log.Info(ctx).Msgf("date: %+v, usage: %d\n", usage[0].Date, usage[0].Usage)
-	log.Info(ctx).Msgf("date: %+v, usage: %d\n", usage[1].Date, usage[1].Usage)
 	if usage[0].Usage >= usage[1].Usage {
 		log.Info(ctx).Msg("increased usage, no need for alarm")
 		return nil
@@ -165,9 +162,8 @@ func (as *AlarmService) AlarmOfAIUsage(ctx context.Context, now time.Time) error
 	if err != nil {
 		return err
 	}
-	log.Info(ctx).Msgf("date: %+v, usage: %d\n", latestUsage, beforeUsage)
 	if latestUsage >= beforeUsage {
-		log.Info(ctx).Msg("increased usage, no need for alarm")
+		log.Info(ctx).Msg("increased usage, no need alarm")
 		return nil
 	}
 	decrease, needAlarm := ExceedingTheUsageAlarmThreshold(latestUsage, beforeUsage)
@@ -176,6 +172,8 @@ func (as *AlarmService) AlarmOfAIUsage(ctx context.Context, now time.Time) error
 		if err != nil {
 			return err
 		}
+	} else {
+		log.Info(ctx).Msg("decrease usage has not reached the alarm threshold, no need alarm")
 	}
 	return nil
 }
@@ -227,7 +225,6 @@ func (as *AlarmService) getAIDailyUsage(ctx context.Context, date time.Time) (ui
 		if err = cursor.Decode(&usageGroup); err != nil {
 			return 0, err
 		}
-		log.Info(ctx).Msgf("success get usage group: %+v\n", usageGroup)
 		return usageGroup.Usage, nil
 	}
 	return 0, errors.New("no usage group")

@@ -24,6 +24,7 @@ import (
 const (
 	ParamOfUserOID  = "oid"
 	QueryOfUserKind = "kind"
+	QueryOfUserType = "type"
 )
 
 type UserController struct {
@@ -43,8 +44,10 @@ func (uc *UserController) List(ctx *gin.Context) (any, error) {
 	}
 
 	kind, _ := ctx.GetQuery(QueryOfUserKind)
+	userType, _ := ctx.GetQuery(QueryOfUserType)
 	opts := &api.ListOptions{
 		KindSelector: kind,
+		TypeSelector: userType,
 	}
 	result, err := uc.svc.List(ctx, pg, opts)
 	if err != nil {
