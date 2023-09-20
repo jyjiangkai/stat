@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 tmp
 
 # macOS
@@ -30,3 +31,25 @@ __debug_bin
 .run
 
 *.log
+=======
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Self
+.idea/
+.git/
+bin/
+>>>>>>> 35dcb949cd3e4801d2506bc7582c321eb28ff1bc

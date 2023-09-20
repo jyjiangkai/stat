@@ -14,13 +14,17 @@ import (
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
 	"github.com/jyjiangkai/stat/log"
+	"github.com/jyjiangkai/stat/mailchimp"
+	"github.com/jyjiangkai/stat/monitor"
 	"github.com/jyjiangkai/stat/router"
 	"github.com/jyjiangkai/stat/utils"
 )
 
 type Config struct {
-	Port int       `yaml:"port"`
-	DB   db.Config `yaml:"mongodb"`
+	Port      int              `yaml:"port"`
+	DB        db.Config        `yaml:"mongodb"`
+	Monitor   monitor.Config   `yaml:"monitor"`
+	MailChimp mailchimp.Config `yaml:"mailchimp"`
 }
 
 var (
@@ -55,6 +59,9 @@ func main() {
 		_ = cli.Disconnect(ctx)
 	}()
 
+	monitor.Init(ctx, cfg.Monitor)
+	mailchimp.Init(ctx, cfg.MailChimp)
+
 	lg := logger.SetLogger(
 		logger.WithLogger(log.CustomLogger),
 	)
@@ -79,15 +86,15 @@ func main() {
 		controller.NewUserController(userService),
 	)
 
-	// refreshService := services.NewRefreshService(cli)
-	// if err = refreshService.Start(); err != nil {
-	// 	panic("failed to start refresh service: " + err.Error())
-	// }
+	refreshService := services.NewRefreshService(cli)
+	if err = refreshService.Start(); err != nil {
+		panic("failed to start refresh service: " + err.Error())
+	}
 
-	// router.RegisterCollectRouter(
-	// 	e.Group("/collect"),
-	// 	controller.NewCollectorController(collectorService),
-	// )
+	alarmService := services.NewAlarmService(cli)
+	if err = alarmService.Start(); err != nil {
+		panic("failed to start alarm service: " + err.Error())
+	}
 
 	go func() {
 		if err = eng.Run(fmt.Sprintf("0.0.0.0:%d", cfg.Port)); err != nil {
