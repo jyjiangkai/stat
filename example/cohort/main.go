@@ -8,7 +8,6 @@ import (
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
 	"github.com/jyjiangkai/stat/log"
-	"github.com/jyjiangkai/stat/models/cloud"
 )
 
 var (
@@ -34,17 +33,11 @@ func main() {
 		_ = cli.Disconnect(ctx)
 	}()
 
-	base := cloud.NewBase(ctx)
-	base.CreatedAt = time.Date(2023, 3, 9, 0, 0, 0, 0, time.UTC)
-	user := &cloud.User{
-		Base: base,
-		OID:  "github|10882129",
-	}
-	svc := services.NewRefreshService(cli)
-	cohort, err := svc.GetCohort(ctx, user)
+	svc := services.NewCohortService(cli)
+	err = svc.WeeklyCohortAnalysis(ctx, time.Now())
 	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to get user cohort")
+		log.Error(ctx).Err(err).Msg("weekly cohort analysis failed")
 		return
 	}
-	log.Info(ctx).Any("cohort", cohort).Msg("success to get user cohort")
+	log.Info(ctx).Msg("finish weekly cohort analysis")
 }

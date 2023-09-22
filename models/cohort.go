@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/jyjiangkai/stat/models/cloud"
 )
 
 // 用于记录一个用户的所有cohort数据
@@ -27,4 +29,17 @@ type Retention struct {
 	Usage  uint64 `json:"usage" bson:"usage"`
 }
 
-// Items     map[time.Time]uint64 `json:"items" bson:"items"`
+type WeeklyRetention struct {
+	Week  *Week  `json:"week" bson:"week"`
+	Ratio string `json:"ratio" bson:"ratio"`
+	Usage uint64 `json:"usage" bson:"usage"`
+}
+
+type WeeklyCohortAnalysis struct {
+	// WeekStart   string                      `json:"week_start" bson:"week_start"`
+	cloud.Base  `json:",inline" bson:",inline"`
+	Week        *Week                       `json:"week" bson:"week"`
+	TotalUsers  uint64                      `json:"total_users" bson:"total_users"`
+	AIRetention map[string]*WeeklyRetention `json:"ai_retention" bson:"ai_retention"`
+	CTRetention map[string]*WeeklyRetention `json:"ct_retention" bson:"ct_retention"`
+}
