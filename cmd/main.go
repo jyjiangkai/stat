@@ -96,6 +96,11 @@ func main() {
 		panic("failed to start alarm service: " + err.Error())
 	}
 
+	cohortService := services.NewCohortService(cli)
+	if err = cohortService.Start(); err != nil {
+		panic("failed to start cohort service: " + err.Error())
+	}
+
 	go func() {
 		if err = eng.Run(fmt.Sprintf("0.0.0.0:%d", cfg.Port)); err != nil {
 			panic(fmt.Sprintf("failed to start HTTP server: %s", err))

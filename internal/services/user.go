@@ -20,6 +20,7 @@ import (
 const (
 	UserTypeOfIntention = "intention"
 	UserTypeOfMarketing = "marketing"
+	UserTypeOfCohort    = "cohort"
 )
 
 var (
@@ -38,6 +39,7 @@ type UserService struct {
 	connectorColl       *mongo.Collection
 	connectionColl      *mongo.Collection
 	statColl            *mongo.Collection
+	cohortColl          *mongo.Collection
 }
 
 func NewUserService(cli *mongo.Client) *UserService {
@@ -52,6 +54,7 @@ func NewUserService(cli *mongo.Client) *UserService {
 		connectorColl:       cli.Database(db.GetDatabaseName()).Collection("connectors"),
 		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
 		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
+		cohortColl:          cli.Database(db.GetDatabaseName()).Collection("weekly_cohort"),
 	}
 }
 
@@ -64,12 +67,14 @@ func (us *UserService) Stop() error {
 }
 
 func (us *UserService) List(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Str("kind", opts.KindSelector).Str("type", opts.TypeSelector).Msg("list users")
+	log.Info(ctx).Str("kind", opts.KindSelector).Str("type", opts.TypeSelector).Msg("print params of list user api")
 	switch opts.TypeSelector {
 	case UserTypeOfIntention:
 		return us.listIntentionUsers(ctx, pg, opts)
 	case UserTypeOfMarketing:
 		return us.listMarketingUsers(ctx, pg, opts)
+	case UserTypeOfCohort:
+		return us.listCohortUsers(ctx, pg, opts)
 	default:
 		return us.list(ctx, pg, opts)
 	}
@@ -287,6 +292,36 @@ func (us *UserService) listMarketingUsers(ctx context.Context, pg api.Page, opts
 	}, nil
 }
 
+func (us *UserService) listCohortUsers(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	query := bson.M{}
+	cursor, err := us.cohortColl.Find(ctx, query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				List: []interface{}{},
+				P:    pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		cohort := &models.WeeklyCohortAnalysis{}
+		if err = cursor.Decode(cohort); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		list = append(list, cohort)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
 func (us *UserService) Get(ctx context.Context, oid string, opts *api.GetOptions) (*models.UserDetail, error) {
 	if opts.KindSelector == "" {
 		ai, err := us.getAIDetail(ctx, oid)
@@ -320,6 +355,67 @@ func (us *UserService) Get(ctx context.Context, oid string, opts *api.GetOptions
 	}
 	return nil, api.ErrUnsupportedKind.WithMessage(fmt.Sprintf("unsupported kind: %s", opts.KindSelector))
 }
+
+// func (us *UserService) getWeeklyRetentions(ctx context.Context, week *models.Week, kind string) (map[string]*models.WeeklyRetention, uint64, error) {
+// 	totalUsers := uint64(0)
+// 	weeklyActiveUsers := make(map[string]uint64)
+// 	retentions := make(map[string]*models.WeeklyRetention)
+// 	query := bson.M{
+// 		"created_at": bson.M{
+// 			"$gte": week.Start,
+// 			"$lte": week.End,
+// 		},
+// 	}
+// 	cursor, err := us.statColl.Find(ctx, query)
+// 	if err != nil {
+// 		return retentions, 0, err
+// 	}
+// 	defer func() {
+// 		_ = cursor.Close(ctx)
+// 	}()
+// 	for cursor.Next(ctx) {
+// 		user := &models.User{}
+// 		if err = cursor.Decode(user); err != nil {
+// 			return nil, 0, err
+// 		}
+// 		totalUsers += 1
+// 		if kind != "ai" {
+// 			for weekNum, retention := range user.Cohort.AI {
+// 				if _, ok := retentions[weekNum]; ok {
+// 					retentions[weekNum].Usage += retention.Usage
+// 				} else {
+// 					retentions[weekNum] = &models.WeeklyRetention{
+// 						Week:  retention.Week,
+// 						Usage: retention.Usage,
+// 					}
+// 				}
+// 				if retention.Active {
+// 					weeklyActiveUsers[weekNum] += 1
+// 				}
+// 			}
+// 		} else if kind != "connect" {
+// 			for weekNum, retention := range user.Cohort.Connect {
+// 				if _, ok := retentions[weekNum]; ok {
+// 					retentions[weekNum].Usage += retention.Usage
+// 				} else {
+// 					retentions[weekNum] = &models.WeeklyRetention{
+// 						Week:  retention.Week,
+// 						Usage: retention.Usage,
+// 					}
+// 				}
+// 				if retention.Active {
+// 					weeklyActiveUsers[weekNum] += 1
+// 				}
+// 			}
+// 		}
+// 		// log.Info(ctx).Uint64("cnt", cnt).Any("user", user).Msg("success to get user")
+// 	}
+// 	for weekNum, activeNum := range weeklyActiveUsers {
+// 		ratio := math.Round(float64(activeNum)/float64(totalUsers)*10000) / 100
+// 		retentions[weekNum].Ratio = fmt.Sprintf("%0.2f%%", ratio)
+// 	}
+// 	return retentions, totalUsers, nil
+// }
 
 func (us *UserService) getLastWeekCreatedKnowledgeBaseUserList(ctx context.Context) ([]string, error) {
 	query := bson.M{

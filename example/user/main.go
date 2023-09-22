@@ -35,10 +35,10 @@ func main() {
 
 	svc := services.NewUserService(cli)
 	pg := api.Page{
-		PageSize: 50,
+		PageSize: 2,
 	}
 	opts := &api.ListOptions{
-		KindSelector: "ai",
+		KindSelector: "connect",
 		TypeSelector: "marketing",
 	}
 	results, err := svc.List(ctx, pg, opts)
