@@ -25,6 +25,7 @@ const (
 	ParamOfUserOID  = "oid"
 	QueryOfUserKind = "kind"
 	QueryOfUserType = "type"
+	QueryOfOperator = "operator"
 )
 
 type UserController struct {
@@ -42,14 +43,17 @@ func (uc *UserController) List(ctx *gin.Context) (any, error) {
 	if err := ctx.BindQuery(&pg); err != nil {
 		return nil, api.ErrParsePaging
 	}
-
+	filter := api.Filter{}
+	if err := ctx.Bind(&filter); err != nil {
+		return nil, api.ErrParseFilting.WithError(err)
+	}
 	kind, _ := ctx.GetQuery(QueryOfUserKind)
 	userType, _ := ctx.GetQuery(QueryOfUserType)
 	opts := &api.ListOptions{
 		KindSelector: kind,
 		TypeSelector: userType,
 	}
-	result, err := uc.svc.List(ctx, pg, opts)
+	result, err := uc.svc.List(ctx, pg, filter, opts)
 	if err != nil {
 		return nil, err
 	}

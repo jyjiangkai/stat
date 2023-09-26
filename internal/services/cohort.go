@@ -99,19 +99,18 @@ func (cs *CohortService) updateWeeklyCohortAnalysis(ctx context.Context, week *m
 		log.Error(ctx).Err(err).Str("week", week.Alias).Msg("failed to get weekly retentions")
 		return
 	}
-	// log.Info(ctx).Any("start", week.Start).Any("end", week.End).Uint64("cnt", cnt).Msg("success to get weekly retention")
-	base := cloud.NewBase(ctx)
-	weeklyCohortAnalysis := &models.WeeklyCohortAnalysis{
-		Base:        base,
-		Week:        week,
-		TotalUsers:  cnt,
-		AIRetention: aiRetentions,
-		CTRetention: ctRetentions,
+	weeklyCohortAnalysis, err := cs.getWeeklyCohortAnalysisFromAlias(ctx, week.Alias)
+	if err != nil {
+		log.Error(ctx).Err(err).Str("week", week.Alias).Msg("failed to weekly cohort analysis")
+		return
 	}
-	// log.Info(ctx).Any("weekly_cohort_analysis", weeklyCohortAnalysis).Msg("success to get weekly cohort analysis")
-	// return nil
+	weeklyCohortAnalysis.UpdatedAt = time.Now()
+	weeklyCohortAnalysis.Week = week
+	weeklyCohortAnalysis.TotalUsers = cnt
+	weeklyCohortAnalysis.AIRetention = aiRetentions
+	weeklyCohortAnalysis.CTRetention = ctRetentions
 	query := bson.M{
-		"week.alias": week.Alias,
+		"_id": weeklyCohortAnalysis.ID,
 	}
 	opts := &options.ReplaceOptions{
 		Upsert: utils.PtrBool(true),
@@ -185,6 +184,23 @@ func (cs *CohortService) getWeeklyRetentions(ctx context.Context, week *models.W
 		ctRetentions[weekNum].Ratio = fmt.Sprintf("%0.2f%%", ratio)
 	}
 	return aiRetentions, ctRetentions, totalUsers, nil
+}
+
+func (cs *CohortService) getWeeklyCohortAnalysisFromAlias(ctx context.Context, alias string) (*models.WeeklyCohortAnalysis, error) {
+	query := bson.M{
+		"week.alias": alias,
+	}
+	result := cs.cohortColl.FindOne(ctx, query)
+	if result.Err() != nil {
+		log.Error(ctx).Err(result.Err()).Str("week", alias).Msg("failed to get weekly cohort analysis")
+		return nil, result.Err()
+	}
+	weeklyCohortAnalysis := &models.WeeklyCohortAnalysis{}
+	if err := result.Decode(weeklyCohortAnalysis); err != nil {
+		log.Error(ctx).Err(err).Str("week", alias).Msg("failed to weekly cohort analysis")
+		return nil, err
+	}
+	return weeklyCohortAnalysis, nil
 }
 
 // func (cas *CohortService) GetRetentions(ctx context.Context, week *models.Week, users []*models.User) ([]*models.Retention, error) {

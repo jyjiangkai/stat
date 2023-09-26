@@ -66,7 +66,7 @@ func (us *UserService) Stop() error {
 	return nil
 }
 
-func (us *UserService) List(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Str("kind", opts.KindSelector).Str("type", opts.TypeSelector).Msg("print params of list user api")
 	switch opts.TypeSelector {
 	case UserTypeOfIntention:
@@ -76,11 +76,11 @@ func (us *UserService) List(ctx context.Context, pg api.Page, opts *api.ListOpti
 	case UserTypeOfCohort:
 		return us.listCohortUsers(ctx, pg, opts)
 	default:
-		return us.list(ctx, pg, opts)
+		return us.list(ctx, pg, filter, opts)
 	}
 }
 
-func (us *UserService) list(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -91,7 +91,7 @@ func (us *UserService) list(ctx context.Context, pg api.Page, opts *api.ListOpti
 		skip = 0
 	}
 
-	query := bson.M{}
+	query := addFilter(ctx, filter)
 	if opts.KindSelector == "ai" {
 		query["usages.ai.app"] = bson.M{"$ne": 0}
 	} else if opts.KindSelector == "connect" {
@@ -354,6 +354,39 @@ func (us *UserService) Get(ctx context.Context, oid string, opts *api.GetOptions
 		}, nil
 	}
 	return nil, api.ErrUnsupportedKind.WithMessage(fmt.Sprintf("unsupported kind: %s", opts.KindSelector))
+}
+
+func addFilter(ctx context.Context, filter api.Filter) bson.M {
+	if filter.Columns == nil {
+		return bson.M{}
+	}
+	if len(filter.Columns) == 0 {
+		return bson.M{}
+	}
+	results := make([]bson.M, 0)
+	for _, column := range filter.Columns {
+		switch column.Operator {
+		case "includes":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$regex": column.Value}})
+		case "doesNotInclude":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$not": bson.M{"$eq": column.Value}}})
+		case "is":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$eq": column.Value}})
+		case "isNot":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$ne": column.Value}})
+		case "isEmpty":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$exists": false}})
+		case "isNotEmpty":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$exists": true}})
+		}
+	}
+	query := bson.M{}
+	if filter.Operator == "or" {
+		query["$or"] = results
+	} else {
+		query["$and"] = results
+	}
+	return query
 }
 
 // func (us *UserService) getWeeklyRetentions(ctx context.Context, week *models.Week, kind string) (map[string]*models.WeeklyRetention, uint64, error) {
