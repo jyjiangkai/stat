@@ -46,7 +46,7 @@ func (uc *UserController) List(ctx *gin.Context) (any, error) {
 	if err := ctx.BindQuery(&pg); err != nil {
 		return nil, api.ErrParsePaging
 	}
-	filter := api.Filter{}
+	filter := api.NewFilter()
 	if err := ctx.Bind(&filter); err != nil {
 		log.Error(ctx).Err(err).Msg("failed to parse filting parameters")
 		// TODO(jiangkai): fix me
