@@ -13,7 +13,7 @@ import (
 
 func RegisterUsersRouter(group *gin.RouterGroup,
 	ctrl *controller.UserController) {
-	wrapRouterGroup(group, http.MethodGet, "", ctrl.List)
+	wrapRouterGroup(group, http.MethodPost, "", ctrl.List)
 
 	pathID := fmt.Sprintf("/:%s", controller.ParamOfUserOID)
 	wrapRouterGroup(group, http.MethodGet, pathID, ctrl.Get)

@@ -7,9 +7,9 @@ type ListResult struct {
 
 type Page struct {
 	Total      int64  `json:"total" form:"total"`
-	PageSize   int64  `json:"page_size" form:"page_size,default=20"`
-	PageNumber int64  `json:"page_number" form:"page_number,default=1"`
-	SortBy     string `json:"sort_by" form:"sort_by,default=updated_at"`
+	PageSize   int64  `json:"page_size" form:"page_size,default=10"`
+	PageNumber int64  `json:"page_number" form:"page_number,default=-1"`
+	SortBy     string `json:"sort_by" form:"sort_by,default=created_at"`
 	Direction  string `json:"direction" form:"direction"`
 	Reg        string `json:"region,omitempty" form:"region"`
 	// Token      string        `json:"token,omitempty"` // reserve

@@ -37,11 +37,12 @@ func main() {
 	pg := api.Page{
 		PageSize: 2,
 	}
+	filter := api.Filter{}
 	opts := &api.ListOptions{
 		KindSelector: "connect",
 		TypeSelector: "marketing",
 	}
-	results, err := svc.List(ctx, pg, opts)
+	results, err := svc.List(ctx, pg, filter, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msg("failed to list user")
 		return
