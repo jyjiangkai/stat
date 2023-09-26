@@ -15,10 +15,13 @@
 package controller
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/jyjiangkai/stat/api"
 	"github.com/jyjiangkai/stat/internal/services"
+	"github.com/jyjiangkai/stat/log"
 )
 
 const (
@@ -45,7 +48,11 @@ func (uc *UserController) List(ctx *gin.Context) (any, error) {
 	}
 	filter := api.Filter{}
 	if err := ctx.Bind(&filter); err != nil {
-		return nil, api.ErrParseFilting.WithError(err)
+		log.Error(ctx).Err(err).Msg("failed to parse filting parameters")
+		// TODO(jiangkai): fix me
+		if !strings.Contains(err.Error(), "EOF") {
+			return nil, api.ErrParseFilting.WithError(err)
+		}
 	}
 	kind, _ := ctx.GetQuery(QueryOfUserKind)
 	userType, _ := ctx.GetQuery(QueryOfUserType)
