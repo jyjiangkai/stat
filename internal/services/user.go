@@ -40,6 +40,7 @@ type UserService struct {
 	connectionColl      *mongo.Collection
 	statColl            *mongo.Collection
 	cohortColl          *mongo.Collection
+	closeC              chan struct{}
 }
 
 func NewUserService(cli *mongo.Client) *UserService {
@@ -55,10 +56,49 @@ func NewUserService(cli *mongo.Client) *UserService {
 		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
 		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
 		cohortColl:          cli.Database(db.GetDatabaseName()).Collection("weekly_cohort"),
+		closeC:              make(chan struct{}),
 	}
 }
 
 func (us *UserService) Start() error {
+	ctx := context.Background()
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		defer log.Warn(ctx).Err(nil).Msg("weekly marketing user routine exit")
+		for {
+			select {
+			case <-us.closeC:
+				log.Info(ctx).Msg("user service stopped.")
+				return
+			case <-ticker.C:
+				now := time.Now()
+				if now.Weekday() == time.Monday && now.Hour() == 2 {
+					log.Info(ctx).Msgf("start stat weekly marketing user at: %+v\n", now)
+					pg := api.Page{}
+					filter := api.Filter{}
+					opts := &api.ListOptions{
+						KindSelector: "ai",
+						TypeSelector: UserTypeOfMarketing,
+					}
+					result, err := us.List(ctx, pg, filter, opts)
+					if err != nil {
+						log.Error(ctx).Msgf("stat weekly marketing user failed at %+v\n", time.Now())
+					}
+					for idx := range result.List {
+						user := result.List[idx].(*models.User)
+						if mailchimp.ValidateEmail(user.Email) {
+							err := mailchimp.AddMember(ctx, user.Email)
+							if err != nil {
+								log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
+							}
+						}
+					}
+					log.Info(ctx).Msgf("finish stat weekly marketing user at: %+v\n", time.Now())
+				}
+			}
+		}
+	}()
 	return nil
 }
 
@@ -247,7 +287,6 @@ func (us *UserService) listMarketingUsers(ctx context.Context, pg api.Page, opts
 			"$gte": time.Now().Add(-1 * TimeDurationOfWeek),
 			// "$lte": end,
 		},
-		// "oidc_id":                  bson.M{"$in": users},
 		"bills.ai.total":           bson.M{"$ne": 0},
 		"usages.ai.knowledge_base": 0,
 	}
@@ -276,13 +315,6 @@ func (us *UserService) listMarketingUsers(ctx context.Context, pg api.Page, opts
 		user := &models.User{}
 		if err = cursor.Decode(user); err != nil {
 			return nil, db.HandleDBError(err)
-		}
-		// user.Bills.AI.Total = usage[user.OID]
-		if mailchimp.ValidateEmail(user.Email) {
-			err := mailchimp.Subscribe(ctx, user.Email)
-			if err != nil {
-				log.Error(ctx).Str("email", user.Email).Msg("failed to subscribe email to mailchimp")
-			}
 		}
 		list = append(list, user)
 	}

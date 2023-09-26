@@ -37,8 +37,9 @@ func Init(ctx context.Context, c Config) {
 	})
 }
 
-func Subscribe(ctx context.Context, email string) error {
+func AddMember(ctx context.Context, email string) error {
 	if !cfg.Enable {
+		log.Info(ctx).Str("email", email).Msg("mailchimp function is disable, no need add member")
 		return nil
 	}
 	req := &MailChimp{
