@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	UserTypeOfPremium   = "premium"
 	UserTypeOfIntention = "intention"
 	UserTypeOfMarketing = "marketing"
 	UserTypeOfCohort    = "cohort"
@@ -40,6 +41,7 @@ type UserService struct {
 	connectionColl      *mongo.Collection
 	statColl            *mongo.Collection
 	cohortColl          *mongo.Collection
+	creditColl          *mongo.Collection
 	closeC              chan struct{}
 }
 
@@ -56,6 +58,7 @@ func NewUserService(cli *mongo.Client) *UserService {
 		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
 		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
 		cohortColl:          cli.Database(db.GetDatabaseName()).Collection("weekly_cohort"),
+		creditColl:          cli.Database(db.GetDatabaseName()).Collection("credits"),
 		closeC:              make(chan struct{}),
 	}
 }
@@ -109,6 +112,8 @@ func (us *UserService) Stop() error {
 func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Str("kind", opts.KindSelector).Str("type", opts.TypeSelector).Msg("print params of list user api")
 	switch opts.TypeSelector {
+	case UserTypeOfPremium:
+		return us.listPremiumUsers(ctx, pg, filter, opts)
 	case UserTypeOfIntention:
 		return us.listIntentionUsers(ctx, pg, opts)
 	case UserTypeOfMarketing:
@@ -176,7 +181,6 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 		_ = cursor.Close(ctx)
 	}()
 
-	num := 0
 	list := make([]interface{}, 0)
 	for cursor.Next(ctx) {
 		user := &models.User{}
@@ -184,9 +188,88 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 			return nil, db.HandleDBError(err)
 		}
 		list = append(list, user)
-		num += 1
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+	)
+
+	if skip < 0 {
+		skip = 0
 	}
 
+	query := addFilter(ctx, filter)
+	if opts.KindSelector == "ai" {
+		query["class.ai.premium"] = true
+	} else if opts.KindSelector == "connect" {
+		query["class.connect.premium"] = true
+	}
+	cnt, err := us.statColl.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+	if cnt <= skip {
+		return nil, api.ErrPageArgumentsTooLarge
+	}
+
+	pg.Total = cnt
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := us.statColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		user := &models.User{}
+		if err = cursor.Decode(user); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		ctype := ""
+		if opts.KindSelector == "ai" {
+			ctype = user.Class.AI.Plan.Type
+		} else if opts.KindSelector == "connect" {
+			ctype = user.Class.Connect.Plan.Type
+		}
+		credits, err := us.getUserCredits(ctx, user.OID, ctype)
+		if err != nil {
+			return nil, err
+		}
+		user.Credits = credits
+		list = append(list, user)
+	}
 	return &api.ListResult{
 		List: list,
 		P:    pg,
@@ -419,6 +502,45 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 		query["$and"] = results
 	}
 	return query
+}
+
+func (us *UserService) getUserCredits(ctx context.Context, oid string, ctype string) (*models.Credits, error) {
+	now := time.Now()
+	query := bson.M{
+		"user_id": oid,
+		"type":    ctype,
+		"period_of_validity.start": bson.M{
+			"$lte": now,
+		},
+		"period_of_validity.end": bson.M{
+			"$gte": now,
+		},
+	}
+	cursor, err := us.creditColl.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	credits := make([]*cloud.UserCredits, 0)
+	for cursor.Next(ctx) {
+		credit := &cloud.UserCredits{}
+		if err = cursor.Decode(credit); err != nil {
+			return nil, err
+		}
+		credits = append(credits, credit)
+	}
+	if len(credits) == 0 {
+		return &models.Credits{}, nil
+	}
+	result := &models.Credits{
+		Used:     credits[0].Used,
+		Total:    uint64(credits[0].Total),
+		UsageStr: fmt.Sprintf("%d/%d", credits[0].Used, credits[0].Total),
+	}
+	return result, nil
 }
 
 // func (us *UserService) getWeeklyRetentions(ctx context.Context, week *models.Week, kind string) (map[string]*models.WeeklyRetention, uint64, error) {
