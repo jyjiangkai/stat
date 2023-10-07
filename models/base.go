@@ -27,20 +27,39 @@ type Organization struct {
 
 type User struct {
 	cloud.Base   `json:",inline" bson:",inline"`
-	OID          string  `json:"oidc_id" bson:"oidc_id"`
-	Phone        string  `json:"phone" bson:"phone"`
-	Email        string  `json:"email" bson:"email"`
-	Country      string  `json:"country" bson:"country"`
-	GivenName    string  `json:"given_name" bson:"given_name"`
-	FamilyName   string  `json:"family_name" bson:"family_name"`
-	NickName     string  `json:"nickname" bson:"nickname"`
-	CompanyName  string  `json:"company_name" bson:"company_name"`
-	CompanyEmail string  `json:"company_email" bson:"company_email"`
-	Class        *Class  `json:"class" bson:"class"`
-	Bills        *Bills  `json:"bills" bson:"bills"`
-	Usages       *Usages `json:"usages" bson:"usages"`
-	Cohort       *Cohort `json:"cohort" bson:"cohort"`
+	OID          string   `json:"oidc_id" bson:"oidc_id"`
+	Phone        string   `json:"phone" bson:"phone"`
+	Email        string   `json:"email" bson:"email"`
+	Country      string   `json:"country" bson:"country"`
+	GivenName    string   `json:"given_name" bson:"given_name"`
+	FamilyName   string   `json:"family_name" bson:"family_name"`
+	NickName     string   `json:"nickname" bson:"nickname"`
+	CompanyName  string   `json:"company_name" bson:"company_name"`
+	CompanyEmail string   `json:"company_email" bson:"company_email"`
+	Class        *Class   `json:"class" bson:"class"`
+	Bills        *Bills   `json:"bills" bson:"bills"`
+	Usages       *Usages  `json:"usages" bson:"usages"`
+	Cohort       *Cohort  `json:"cohort" bson:"cohort"`
+	Credits      *Credits `json:"credits" bson:"credits"`
 }
+
+// type PremiumUser struct {
+// 	cloud.Base   `json:",inline" bson:",inline"`
+// 	OID          string   `json:"oidc_id" bson:"oidc_id"`
+// 	Phone        string   `json:"phone" bson:"phone"`
+// 	Email        string   `json:"email" bson:"email"`
+// 	Country      string   `json:"country" bson:"country"`
+// 	GivenName    string   `json:"given_name" bson:"given_name"`
+// 	FamilyName   string   `json:"family_name" bson:"family_name"`
+// 	NickName     string   `json:"nickname" bson:"nickname"`
+// 	CompanyName  string   `json:"company_name" bson:"company_name"`
+// 	CompanyEmail string   `json:"company_email" bson:"company_email"`
+// 	Class        *Class   `json:"class" bson:"class"`
+// 	Bills        *Bills   `json:"bills" bson:"bills"`
+// 	Usages       *Usages  `json:"usages" bson:"usages"`
+// 	Cohort       *Cohort  `json:"cohort" bson:"cohort"`
+// 	Credits      *Credits `json:"credits" bson:"credits"`
+// }
 
 type Class struct {
 	AI      *Level `json:"ai" bson:"ai"`
@@ -91,6 +110,12 @@ type AIUsages struct {
 
 type ConnectUsages struct {
 	Connection int64 `json:"connection" bson:"connection"`
+}
+
+type Credits struct {
+	Used     uint64 `json:"used" bson:"used"`
+	Total    uint64 `json:"total" bson:"total"`
+	UsageStr string `json:"usage_str" bson:"usage_str"`
 }
 
 type UserDetail struct {
