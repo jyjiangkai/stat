@@ -19,10 +19,13 @@ func RegisterUsersRouter(group *gin.RouterGroup,
 	wrapRouterGroup(group, http.MethodGet, pathID, ctrl.Get)
 }
 
-// func RegisterCollectRouter(group *gin.RouterGroup,
-// 	ctrl *controller.CollectorController) {
-// 	wrapRouterGroup(group, http.MethodGet, "", ctrl.Collect)
-// }
+func RegisterActionsRouter(group *gin.RouterGroup,
+	ctrl *controller.ActionController) {
+	wrapRouterGroup(group, http.MethodPost, "", ctrl.List)
+
+	pathID := fmt.Sprintf("/:%s", controller.ParamOfUserOID)
+	wrapRouterGroup(group, http.MethodGet, pathID, ctrl.Get)
+}
 
 type HandlerFunc func(ctx *gin.Context) (any, error)
 
