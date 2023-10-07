@@ -86,6 +86,15 @@ func main() {
 		controller.NewUserController(userService),
 	)
 
+	actionService := services.NewActionService(cli)
+	if err = actionService.Start(); err != nil {
+		panic("failed to start action service: " + err.Error())
+	}
+	router.RegisterActionsRouter(
+		e.Group("/actions"),
+		controller.NewActionController(actionService),
+	)
+
 	refreshService := services.NewRefreshService(cli)
 	if err = refreshService.Start(); err != nil {
 		panic("failed to start refresh service: " + err.Error())
