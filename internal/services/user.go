@@ -508,7 +508,8 @@ func (us *UserService) getUserCredits(ctx context.Context, oid string, ctype str
 	now := time.Now()
 	query := bson.M{
 		"user_id": oid,
-		"type":    ctype,
+		"kind":    ctype,
+		"type":    "monthly",
 		"period_of_validity.start": bson.M{
 			"$lte": now,
 		},
