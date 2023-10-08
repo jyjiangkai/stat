@@ -70,7 +70,7 @@ func (as *ActionService) Stop() error {
 }
 
 func (as *ActionService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("print action service list params")
+	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("action service list api")
 	switch opts.TypeSelector {
 	case ActionType:
 		return as.listSpecifiedActionTypeUsers(ctx, pg, filter, opts)
@@ -139,19 +139,32 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 		if err = cursor.Decode(action); err != nil {
 			return nil, db.HandleDBError(err)
 		}
-		if app, ok := as.appCache.Load(action.Payload.AppID); ok {
-			action.App = app.(*cloud.App)
+		if action.Payload.AppID != "" {
+			if app, ok := as.appCache.Load(action.Payload.AppID); ok {
+				action.App = app.(*models.ActionApp)
+			} else {
+				id, _ := primitive.ObjectIDFromHex(action.Payload.AppID)
+				result := as.appColl.FindOne(ctx, bson.M{"_id": id})
+				if result.Err() != nil {
+					return nil, db.HandleDBError(result.Err())
+				}
+				app := &cloud.App{}
+				if err := result.Decode(app); err != nil {
+					return nil, db.HandleDBError(err)
+				}
+				actionApp := &models.ActionApp{
+					Name:     app.Name,
+					Type:     app.Type,
+					Model:    app.Model,
+					Status:   string(app.Status),
+					Greeting: app.Greeting,
+					Prompt:   app.Prompt,
+				}
+				action.App = actionApp
+				as.appCache.Store(action.Payload.AppID, actionApp)
+			}
 		} else {
-			result := as.appColl.FindOne(ctx, bson.M{"_id": action.Payload.AppID})
-			if result.Err() != nil {
-				return nil, db.HandleDBError(result.Err())
-			}
-			app := &cloud.App{}
-			if err := result.Decode(app); err != nil {
-				return nil, db.HandleDBError(err)
-			}
-			action.App = app
-			as.appCache.Store(action.Payload.AppID, app)
+			action.App = models.NewActionApp()
 		}
 		list = append(list, action)
 	}
