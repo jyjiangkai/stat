@@ -110,7 +110,7 @@ func (us *UserService) Stop() error {
 }
 
 func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Str("kind", opts.KindSelector).Str("type", opts.TypeSelector).Msg("print params of list user api")
+	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("user service list api")
 	switch opts.TypeSelector {
 	case UserTypeOfPremium:
 		return us.listPremiumUsers(ctx, pg, filter, opts)
