@@ -78,7 +78,7 @@ func (cs *CohortService) WeeklyCohortAnalysis(ctx context.Context, now time.Time
 	for {
 		cs.wg.Add(1)
 		goroutines += 1
-		go cs.updateWeeklyCohortAnalysis(ctx, week)
+		go cs.updateOrInsertWeeklyCohortAnalysis(ctx, week)
 		// log.Info(ctx).Int("goroutine cnt", goroutines).Str("week start", week.Alias).Msgf("start a goroutine to update")
 		week = GetNextWeek(week)
 		if week.End.After(now) {
@@ -92,19 +92,23 @@ func (cs *CohortService) WeeklyCohortAnalysis(ctx context.Context, now time.Time
 	return nil
 }
 
-func (cs *CohortService) updateWeeklyCohortAnalysis(ctx context.Context, week *models.Week) {
+func (cs *CohortService) updateOrInsertWeeklyCohortAnalysis(ctx context.Context, week *models.Week) {
 	defer cs.wg.Done()
 	aiRetentions, ctRetentions, cnt, err := cs.getWeeklyRetentions(ctx, week)
 	if err != nil && err != mongo.ErrNoDocuments {
 		log.Error(ctx).Err(err).Str("week", week.Alias).Msg("failed to get weekly retentions")
 		return
 	}
-	weeklyCohortAnalysis, err := cs.getWeeklyCohortAnalysisFromAlias(ctx, week.Alias)
+	weeklyCohortAnalysis, exist, err := cs.getWeeklyCohortAnalysisFromAlias(ctx, week.Alias)
 	if err != nil {
 		log.Error(ctx).Err(err).Str("week", week.Alias).Msg("failed to weekly cohort analysis")
 		return
 	}
-	weeklyCohortAnalysis.UpdatedAt = time.Now()
+	if exist {
+		weeklyCohortAnalysis.UpdatedAt = time.Now()
+	} else {
+		weeklyCohortAnalysis.Base = cloud.NewBase(ctx)
+	}
 	weeklyCohortAnalysis.Week = week
 	weeklyCohortAnalysis.TotalUsers = cnt
 	weeklyCohortAnalysis.AIRetention = aiRetentions
@@ -186,21 +190,24 @@ func (cs *CohortService) getWeeklyRetentions(ctx context.Context, week *models.W
 	return aiRetentions, ctRetentions, totalUsers, nil
 }
 
-func (cs *CohortService) getWeeklyCohortAnalysisFromAlias(ctx context.Context, alias string) (*models.WeeklyCohortAnalysis, error) {
+func (cs *CohortService) getWeeklyCohortAnalysisFromAlias(ctx context.Context, alias string) (*models.WeeklyCohortAnalysis, bool, error) {
+	weeklyCohortAnalysis := &models.WeeklyCohortAnalysis{}
 	query := bson.M{
 		"week.alias": alias,
 	}
 	result := cs.cohortColl.FindOne(ctx, query)
 	if result.Err() != nil {
+		if result.Err() == mongo.ErrNoDocuments {
+			return weeklyCohortAnalysis, false, nil
+		}
 		log.Error(ctx).Err(result.Err()).Str("week", alias).Msg("failed to get weekly cohort analysis")
-		return nil, result.Err()
+		return nil, false, result.Err()
 	}
-	weeklyCohortAnalysis := &models.WeeklyCohortAnalysis{}
 	if err := result.Decode(weeklyCohortAnalysis); err != nil {
 		log.Error(ctx).Err(err).Str("week", alias).Msg("failed to weekly cohort analysis")
-		return nil, err
+		return nil, true, err
 	}
-	return weeklyCohortAnalysis, nil
+	return weeklyCohortAnalysis, true, nil
 }
 
 // func (cas *CohortService) GetRetentions(ctx context.Context, week *models.Week, users []*models.User) ([]*models.Retention, error) {
