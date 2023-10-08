@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -38,6 +41,24 @@ func NewActionService(cli *mongo.Client) *ActionService {
 }
 
 func (as *ActionService) Start() error {
+	ctx := context.Background()
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		defer log.Warn(ctx).Err(nil).Msg("update user action time routine exit")
+		for {
+			select {
+			case <-as.closeC:
+				log.Info(ctx).Msg("action service stopped.")
+				return
+			case <-ticker.C:
+				err := as.UpdateTime(ctx)
+				if err != nil {
+					log.Error(ctx).Err(err).Msgf("failed to update user action time at %+v", time.Now())
+				}
+			}
+		}
+	}()
 	return nil
 }
 
@@ -53,7 +74,6 @@ func (as *ActionService) List(ctx context.Context, pg api.Page, filter api.Filte
 	default:
 		return as.list(ctx, pg, filter, opts)
 	}
-	// return as.list(ctx, pg, filter, opts)
 }
 
 func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
@@ -87,6 +107,8 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 	if pg.Direction == "asc" {
 		sort = bson.M{pg.SortBy: 1}
 	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	} else {
 		sort = bson.M{pg.SortBy: -1}
 	}
 
@@ -209,6 +231,54 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 
 func (as *ActionService) Get(ctx context.Context, oid string, opts *api.GetOptions) (*models.UserDetail, error) {
 	return nil, nil
+}
+
+func (as *ActionService) UpdateTime(ctx context.Context) error {
+	query := bson.M{}
+	query["time"] = bson.M{"$regex": "^16.*"}
+	cursor, err := as.actionColl.Find(ctx, query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
+		return err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	type ActionOfTimeStamp struct {
+		ID   primitive.ObjectID `json:"id" bson:"_id"`
+		Time string             `bson:"time"`
+	}
+	for cursor.Next(ctx) {
+		action := &ActionOfTimeStamp{}
+		if err = cursor.Decode(action); err != nil {
+			return db.HandleDBError(err)
+		}
+		realTime, err := toRealTime(ctx, action.Time)
+		if err != nil {
+			log.Error(ctx).Err(err).Msgf("failed to parse timestamp str: %s", action.Time)
+		}
+		_, err = as.actionColl.UpdateOne(ctx,
+			bson.M{"_id": action.ID},
+			bson.M{
+				"$set": bson.M{
+					"time": realTime,
+				}})
+		if err != nil {
+			log.Error(ctx).Err(err).Str("id", action.ID.Hex()).Msg("failed to update time")
+		}
+	}
+	return nil
+}
+
+func toRealTime(ctx context.Context, timestampStr string) (string, error) {
+	timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+	if err != nil {
+		return "", err
+	}
+	return time.Unix(0, timestamp).UTC().Format(time.RFC3339), nil
 }
 
 func genQueryFromActionTypeFilter(ctx context.Context, filter api.Filter) (bson.M, string) {
