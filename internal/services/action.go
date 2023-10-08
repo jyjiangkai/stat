@@ -67,7 +67,6 @@ func (as *ActionService) Stop() error {
 }
 
 func (as *ActionService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Str("kind", opts.KindSelector).Str("type", opts.TypeSelector).Msg("print params of list user api")
 	switch opts.TypeSelector {
 	case ActionType:
 		return as.listSpecifiedActionTypeUsers(ctx, pg, filter, opts)

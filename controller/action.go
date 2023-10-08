@@ -39,7 +39,7 @@ func (ac *ActionController) List(ctx *gin.Context) (any, error) {
 	if err := ctx.BindQuery(&pg); err != nil {
 		return nil, api.ErrParsePaging
 	}
-	if pg.SortBy == "created_at" {
+	if pg.SortBy == "null" {
 		pg.SortBy = "time"
 	}
 	filter := api.NewFilter()
