@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -15,6 +16,7 @@ import (
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/log"
 	"github.com/jyjiangkai/stat/models"
+	"github.com/jyjiangkai/stat/models/cloud"
 )
 
 const (
@@ -28,6 +30,7 @@ type ActionService struct {
 	cli        *mongo.Client
 	appColl    *mongo.Collection
 	actionColl *mongo.Collection
+	appCache   sync.Map
 	closeC     chan struct{}
 }
 
@@ -67,6 +70,7 @@ func (as *ActionService) Stop() error {
 }
 
 func (as *ActionService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("print action service list params")
 	switch opts.TypeSelector {
 	case ActionType:
 		return as.listSpecifiedActionTypeUsers(ctx, pg, filter, opts)
@@ -134,6 +138,20 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 		action := &models.Action{}
 		if err = cursor.Decode(action); err != nil {
 			return nil, db.HandleDBError(err)
+		}
+		if app, ok := as.appCache.Load(action.Payload.AppID); ok {
+			action.App = app.(*cloud.App)
+		} else {
+			result := as.appColl.FindOne(ctx, bson.M{"_id": action.Payload.AppID})
+			if result.Err() != nil {
+				return nil, db.HandleDBError(result.Err())
+			}
+			app := &cloud.App{}
+			if err := result.Decode(app); err != nil {
+				return nil, db.HandleDBError(err)
+			}
+			action.App = app
+			as.appCache.Store(action.Payload.AppID, app)
 		}
 		list = append(list, action)
 	}

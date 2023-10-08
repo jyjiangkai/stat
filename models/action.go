@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/jyjiangkai/stat/models/cloud"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -17,6 +18,7 @@ type Action struct {
 	Website string             `json:"website" bson:"website"`
 	Time    time.Time          `json:"time" bson:"time"`
 	Payload *Payload           `json:"payload" bson:"payload"`
+	App     *cloud.App         `json:"app" bson:"app"`
 }
 
 type Payload struct {
