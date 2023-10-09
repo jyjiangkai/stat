@@ -484,7 +484,7 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 		case "includes":
 			results = append(results, bson.M{column.ColumnID: bson.M{"$regex": column.Value}})
 		case "doesNotInclude":
-			results = append(results, bson.M{column.ColumnID: bson.M{"$not": bson.M{"$eq": column.Value}}})
+			results = append(results, bson.M{column.ColumnID: bson.M{"$not": bson.M{"$regex": column.Value}}})
 		case "is":
 			results = append(results, bson.M{column.ColumnID: bson.M{"$eq": column.Value}})
 		case "isNot":
