@@ -480,6 +480,10 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 	}
 	results := make([]bson.M, 0)
 	for _, column := range filter.Columns {
+		at, err := time.Parse("2006-01-02T15:04:05.000", column.Value)
+		if err != nil {
+			continue
+		}
 		switch column.Operator {
 		case "includes":
 			results = append(results, bson.M{column.ColumnID: bson.M{"$regex": column.Value}})
@@ -493,6 +497,10 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 			results = append(results, bson.M{column.ColumnID: bson.M{"$exists": false}})
 		case "isNotEmpty":
 			results = append(results, bson.M{column.ColumnID: bson.M{"$exists": true}})
+		case "isBefore":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$lte": at}})
+		case "isAfter":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$gte": at}})
 		}
 	}
 	query := bson.M{}

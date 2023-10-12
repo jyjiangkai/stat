@@ -35,6 +35,10 @@ func Init(ctx context.Context, c Config) {
 }
 
 func SendAlarm(ctx context.Context, message string) error {
+	if !cfg.Enable {
+		log.Info(ctx).Str("message", message).Msg("the monitoring alarm function is disable, no need send")
+		return nil
+	}
 	req := &Alarm{
 		Message: message,
 	}
