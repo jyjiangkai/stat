@@ -92,6 +92,7 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 
 	query := addFilter(ctx, filter)
 	query["website"] = bson.M{"$ne": "https://ai.vanustest.com"}
+	log.Info(ctx).Any("query", query).Msg("show action list api query criteria")
 	cnt, err := as.actionColl.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, err

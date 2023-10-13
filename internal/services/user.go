@@ -142,6 +142,7 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 	} else if opts.KindSelector == "connect" {
 		query["usages.connect.connection"] = bson.M{"$ne": 0}
 	}
+	log.Info(ctx).Any("query", query).Msg("show user list api query criteria")
 	cnt, err := us.statColl.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, err
@@ -478,11 +479,17 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 	if len(filter.Columns) == 0 {
 		return bson.M{}
 	}
+	var (
+		at  time.Time
+		err error
+	)
 	results := make([]bson.M, 0)
 	for _, column := range filter.Columns {
-		at, err := time.Parse("2006-01-02T15:04:05.000", column.Value)
-		if err != nil {
-			continue
+		if column.Operator == "isBefore" || column.Operator == "isAfter" {
+			at, err = time.Parse("2006-01-02T15:04:05.000", column.Value)
+			if err != nil {
+				continue
+			}
 		}
 		switch column.Operator {
 		case "includes":
