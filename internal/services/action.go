@@ -90,7 +90,7 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 		skip = 0
 	}
 
-	query := addFilter(ctx, filter)
+	query := addActionFilter(ctx, filter)
 	query["website"] = bson.M{"$ne": "https://ai.vanustest.com"}
 	log.Info(ctx).Any("query", query).Msg("show action list api query criteria")
 	cnt, err := as.actionColl.CountDocuments(ctx, query)
@@ -352,4 +352,41 @@ func genQueryFromActionTypeFilter(ctx context.Context, filter api.Filter) (bson.
 		query["$and"] = results
 	}
 	return query, actionType
+}
+
+func addActionFilter(ctx context.Context, filter api.Filter) bson.M {
+	if filter.Columns == nil {
+		return bson.M{}
+	}
+	if len(filter.Columns) == 0 {
+		return bson.M{}
+	}
+	results := make([]bson.M, 0)
+	for _, column := range filter.Columns {
+		switch column.Operator {
+		case "includes":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$regex": column.Value}})
+		case "doesNotInclude":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$not": bson.M{"$regex": column.Value}}})
+		case "is":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$eq": column.Value}})
+		case "isNot":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$ne": column.Value}})
+		case "isEmpty":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$exists": false}})
+		case "isNotEmpty":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$exists": true}})
+		case "isBefore":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$lte": column.Value}})
+		case "isAfter":
+			results = append(results, bson.M{column.ColumnID: bson.M{"$gte": column.Value}})
+		}
+	}
+	query := bson.M{}
+	if filter.Operator == "or" {
+		query["$or"] = results
+	} else {
+		query["$and"] = results
+	}
+	return query
 }
