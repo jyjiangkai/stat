@@ -185,6 +185,7 @@ func (rs *RefreshService) rangeRefresh(ctx context.Context, start int64, end int
 			NickName:     user.NickName,
 			CompanyName:  user.CompanyName,
 			CompanyEmail: user.CompanyEmail,
+			Industry:     rs.GetUserIndustry(ctx, user),
 			Class:        class,
 			Bills:        bills,
 			Usages:       usage,
@@ -348,4 +349,11 @@ func (rs *RefreshService) GetConnectBillChangedUserList(ctx context.Context, sta
 		users = append(users, usageGroup.UserID)
 	}
 	return users, nil
+}
+
+func (rs *RefreshService) GetUserIndustry(ctx context.Context, user *cloud.User) string {
+	if user.Industry == "Others" {
+		return user.IndustryExtra
+	}
+	return user.Industry
 }

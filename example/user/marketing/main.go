@@ -54,7 +54,7 @@ func main() {
 	for idx := range result.List {
 		user := result.List[idx].(*models.User)
 		if mailchimp.ValidateEmail(user.Email) {
-			err := mailchimp.AddMember(ctx, user.Email)
+			err := mailchimp.AddMember(ctx, user.Email, []string{})
 			if err != nil {
 				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
 			}

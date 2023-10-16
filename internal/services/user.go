@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	UserTypeOfPremium   = "premium"
-	UserTypeOfIntention = "intention"
-	UserTypeOfMarketing = "marketing"
-	UserTypeOfCohort    = "cohort"
+	UserTypeOfPremium            = "premium"
+	UserTypeOfNoKnownledgeBase   = "no_knowledge_base"
+	UserTypeOfHighKnownledgeBase = "high_knowledge_base"
+	UserTypeOfCohort             = "cohort"
 )
 
 var (
@@ -68,7 +68,7 @@ func (us *UserService) Start() error {
 	go func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
-		defer log.Warn(ctx).Err(nil).Msg("weekly marketing user routine exit")
+		defer log.Warn(ctx).Err(nil).Msg("weekly user tracking routine exit")
 		for {
 			select {
 			case <-us.closeC:
@@ -77,31 +77,66 @@ func (us *UserService) Start() error {
 			case <-ticker.C:
 				now := time.Now()
 				if now.Weekday() == time.Monday && now.Hour() == 2 {
-					log.Info(ctx).Msgf("start stat weekly marketing user at: %+v\n", now)
-					pg := api.Page{}
-					filter := api.Filter{}
-					opts := &api.ListOptions{
-						KindSelector: "ai",
-						TypeSelector: UserTypeOfMarketing,
-					}
-					result, err := us.List(ctx, pg, filter, opts)
-					if err != nil {
-						log.Error(ctx).Msgf("stat weekly marketing user failed at %+v\n", time.Now())
-					}
-					for idx := range result.List {
-						user := result.List[idx].(*models.User)
-						if mailchimp.ValidateEmail(user.Email) {
-							err := mailchimp.AddMember(ctx, user.Email)
-							if err != nil {
-								log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
-							}
-						}
-					}
-					log.Info(ctx).Msgf("finish stat weekly marketing user at: %+v\n", time.Now())
+					us.weeklyNoKnownledgeBaseUserTracking(ctx, now)
+					us.weeklyHighKnownledgeBaseUserTracking(ctx, now)
 				}
 			}
 		}
 	}()
+	return nil
+}
+
+func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, now time.Time) error {
+	log.Info(ctx).Msgf("start stat weekly no knownledge base user at: %+v\n", now)
+	pg := api.Page{}
+	filter := api.Filter{}
+	opts := &api.ListOptions{
+		KindSelector: "ai",
+		TypeSelector: UserTypeOfNoKnownledgeBase,
+	}
+	result, err := us.List(ctx, pg, filter, opts)
+	if err != nil {
+		log.Error(ctx).Msgf("stat weekly no knownledge base user failed at %+v\n", now)
+		return err
+	}
+	for idx := range result.List {
+		user := result.List[idx].(*models.User)
+		if mailchimp.ValidateEmail(user.Email) {
+			tags := []string{"vanus_ai", UserTypeOfNoKnownledgeBase}
+			err := mailchimp.AddMember(ctx, user.Email, tags)
+			if err != nil {
+				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
+			}
+		}
+	}
+	log.Info(ctx).Msgf("finish stat weekly no knownledge base user at: %+v\n", time.Now())
+	return nil
+}
+
+func (us *UserService) weeklyHighKnownledgeBaseUserTracking(ctx context.Context, now time.Time) error {
+	log.Info(ctx).Msgf("start stat weekly high knownledge base user at: %+v\n", now)
+	pg := api.Page{}
+	filter := api.Filter{}
+	opts := &api.ListOptions{
+		KindSelector: "ai",
+		TypeSelector: UserTypeOfHighKnownledgeBase,
+	}
+	result, err := us.List(ctx, pg, filter, opts)
+	if err != nil {
+		log.Error(ctx).Msgf("stat weekly high knownledge base user failed at %+v\n", now)
+		return err
+	}
+	for idx := range result.List {
+		user := result.List[idx].(*models.User)
+		if mailchimp.ValidateEmail(user.Email) {
+			tags := []string{"vanus_ai", UserTypeOfHighKnownledgeBase}
+			err := mailchimp.AddMember(ctx, user.Email, tags)
+			if err != nil {
+				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
+			}
+		}
+	}
+	log.Info(ctx).Msgf("finish stat weekly high knownledge base user at: %+v\n", time.Now())
 	return nil
 }
 
@@ -114,10 +149,10 @@ func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter,
 	switch opts.TypeSelector {
 	case UserTypeOfPremium:
 		return us.listPremiumUsers(ctx, pg, filter, opts)
-	case UserTypeOfIntention:
-		return us.listIntentionUsers(ctx, pg, opts)
-	case UserTypeOfMarketing:
-		return us.listMarketingUsers(ctx, pg, opts)
+	case UserTypeOfNoKnownledgeBase:
+		return us.listNoKnownledgeBaseUsers(ctx, pg, opts)
+	case UserTypeOfHighKnownledgeBase:
+		return us.listHighKnownledgeBaseUsers(ctx, pg, opts)
 	case UserTypeOfCohort:
 		return us.listCohortUsers(ctx, pg, opts)
 	default:
@@ -277,7 +312,7 @@ func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter
 	}, nil
 }
 
-func (us *UserService) listIntentionUsers(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) listHighKnownledgeBaseUsers(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  int64  = 0
 		limit int64  = 50
@@ -307,7 +342,7 @@ func (us *UserService) listIntentionUsers(ctx context.Context, pg api.Page, opts
 		// "oidc_id":          bson.M{"$in": users},
 		"class.ai.premium":         false,
 		"bills.ai.total":           bson.M{"$ne": 0},
-		"usages.ai.knowledge_base": bson.M{"$ne": 0},
+		"usages.ai.knowledge_base": bson.M{"$gte": 2},
 	}
 
 	opt := options.FindOptions{
@@ -344,7 +379,7 @@ func (us *UserService) listIntentionUsers(ctx context.Context, pg api.Page, opts
 	}, nil
 }
 
-func (us *UserService) listMarketingUsers(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) listNoKnownledgeBaseUsers(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  int64  = 0
 		limit int64  = 50

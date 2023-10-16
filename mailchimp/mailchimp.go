@@ -13,10 +13,9 @@ import (
 )
 
 var (
-	cfg         Config
-	client      *resty.Client
-	once        sync.Once
-	defaultTags []string = []string{"vanus_ai", "no_knowledge_base"}
+	cfg    Config
+	client *resty.Client
+	once   sync.Once
 )
 
 type Config struct {
@@ -37,14 +36,14 @@ func Init(ctx context.Context, c Config) {
 	})
 }
 
-func AddMember(ctx context.Context, email string) error {
+func AddMember(ctx context.Context, email string, tags []string) error {
 	if !cfg.Enable {
 		log.Info(ctx).Str("email", email).Msg("mailchimp function is disable, no need add member")
 		return nil
 	}
 	req := &MailChimp{
 		Email: email,
-		Tags:  defaultTags,
+		Tags:  tags,
 	}
 	resp, err := client.R().SetBody(req).Post(cfg.WebhookUrl)
 	if err == handleHTTPResponse(ctx, resp, err) {
