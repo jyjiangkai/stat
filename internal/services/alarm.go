@@ -144,7 +144,7 @@ func (as *AlarmService) AlarmOfConnectUsage(ctx context.Context, now time.Time) 
 	}
 	decrease, needAlarm := ExceedingTheUsageAlarmThreshold(usage[0].Usage, usage[1].Usage)
 	if needAlarm {
-		err = monitor.SendAlarm(ctx, fmt.Sprintf("On %s %dth, the usage of connect was %d, decrease of over %d%% compared to the previous day", now.Month().String(), now.Day(), usage[0].Usage, decrease))
+		err = monitor.SendAlarm(ctx, fmt.Sprintf("On %s %dth, the usage of connect was %d, decrease of %0.2f%% compared to the previous day", now.Month().String(), now.Day(), usage[0].Usage, decrease))
 		if err != nil {
 			return err
 		}
