@@ -92,10 +92,10 @@ type AIBills struct {
 
 type ConnectBills struct {
 	Items     map[time.Time]uint64 `json:"items" bson:"items"`
-	Total     uint64               `json:"total" bson:"total"`
-	Yesterday uint64               `json:"yesterday" bson:"yesterday"`
-	LastWeek  uint64               `json:"last_week" bson:"last_week"`
-	LastMonth uint64               `json:"last_month" bson:"last_month"`
+	Total     *Usage               `json:"total" bson:"total"`
+	Yesterday *Usage               `json:"yesterday" bson:"yesterday"`
+	LastWeek  *Usage               `json:"last_week" bson:"last_week"`
+	LastMonth *Usage               `json:"last_month" bson:"last_month"`
 }
 
 type Usage struct {
