@@ -10,6 +10,7 @@ import (
 	"github.com/jyjiangkai/stat/models/cloud"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (rs *RefreshService) getClass(ctx context.Context, oid string, now time.Time) (*models.Class, error) {
@@ -38,13 +39,12 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 			"$gte": now,
 		},
 	}
-
 	result := rs.quotaColl.FindOne(ctx, query)
 	if result.Err() != nil {
 		if result.Err() == mongo.ErrNoDocuments {
 			return &models.Level{
 				Premium: false,
-				Plan: models.Plan{
+				Plan: &models.Plan{
 					Type:  "Free",
 					Level: 1,
 				},
@@ -56,11 +56,41 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 		log.Error(ctx).Err(err).Msg("failed to decode user quota")
 		return nil, db.HandleDBError(err)
 	}
+
+	payment, err := rs.getPayment(ctx, oid, kind)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to get payment")
+		return nil, db.HandleDBError(err)
+	}
 	return &models.Level{
 		Premium: true,
-		Plan: models.Plan{
+		Plan: &models.Plan{
 			Type:  userQuota.Plan.Type,
 			Level: userQuota.Plan.Level,
 		},
+		Payment:          payment,
+		PeriodOfValidity: userQuota.PeriodOfValidity,
 	}, nil
+}
+
+func (rs *RefreshService) getPayment(ctx context.Context, oid string, kind string) (*models.Payment, error) {
+	query := bson.M{
+		"created_by": oid,
+		"kind":       kind,
+	}
+	opt := options.FindOneOptions{
+		Sort: bson.M{"created_at": -1},
+	}
+	result := rs.quotaColl.FindOne(ctx, query, &opt)
+	if result.Err() != nil {
+		if result.Err() == mongo.ErrNoDocuments {
+			return &models.Payment{}, nil
+		}
+	}
+	payment := &models.Payment{}
+	if err := result.Decode(payment); err != nil {
+		log.Error(ctx).Err(err).Msg("failed to decode payment")
+		return nil, db.HandleDBError(err)
+	}
+	return payment, nil
 }

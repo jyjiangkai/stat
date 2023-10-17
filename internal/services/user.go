@@ -299,11 +299,13 @@ func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter
 		} else if opts.KindSelector == "connect" {
 			ctype = user.Class.Connect.Plan.Type
 		}
-		credits, err := us.getUserCredits(ctx, user.OID, ctype)
-		if err != nil {
-			return nil, err
+		if opts.KindSelector == "ai" {
+			credits, err := us.getUserCredits(ctx, user.OID, ctype)
+			if err != nil {
+				return nil, err
+			}
+			user.Credits = credits
 		}
-		user.Credits = credits
 		list = append(list, user)
 	}
 	return &api.ListResult{

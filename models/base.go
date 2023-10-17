@@ -44,23 +44,24 @@ type User struct {
 	Credits      *Credits `json:"credits" bson:"credits"`
 }
 
-// type PremiumUser struct {
-// 	cloud.Base   `json:",inline" bson:",inline"`
-// 	OID          string   `json:"oidc_id" bson:"oidc_id"`
-// 	Phone        string   `json:"phone" bson:"phone"`
-// 	Email        string   `json:"email" bson:"email"`
-// 	Country      string   `json:"country" bson:"country"`
-// 	GivenName    string   `json:"given_name" bson:"given_name"`
-// 	FamilyName   string   `json:"family_name" bson:"family_name"`
-// 	NickName     string   `json:"nickname" bson:"nickname"`
-// 	CompanyName  string   `json:"company_name" bson:"company_name"`
-// 	CompanyEmail string   `json:"company_email" bson:"company_email"`
-// 	Class        *Class   `json:"class" bson:"class"`
-// 	Bills        *Bills   `json:"bills" bson:"bills"`
-// 	Usages       *Usages  `json:"usages" bson:"usages"`
-// 	Cohort       *Cohort  `json:"cohort" bson:"cohort"`
-// 	Credits      *Credits `json:"credits" bson:"credits"`
-// }
+type PremiumUser struct {
+	cloud.Base   `json:",inline" bson:",inline"`
+	OID          string   `json:"oidc_id" bson:"oidc_id"`
+	Phone        string   `json:"phone" bson:"phone"`
+	Email        string   `json:"email" bson:"email"`
+	Country      string   `json:"country" bson:"country"`
+	GivenName    string   `json:"given_name" bson:"given_name"`
+	FamilyName   string   `json:"family_name" bson:"family_name"`
+	NickName     string   `json:"nickname" bson:"nickname"`
+	CompanyName  string   `json:"company_name" bson:"company_name"`
+	CompanyEmail string   `json:"company_email" bson:"company_email"`
+	Industry     string   `json:"industry" bson:"industry"`
+	Class        *Class   `json:"class" bson:"class"`
+	Bills        *Bills   `json:"bills" bson:"bills"`
+	Usages       *Usages  `json:"usages" bson:"usages"`
+	Cohort       *Cohort  `json:"cohort" bson:"cohort"`
+	Credits      *Credits `json:"credits" bson:"credits"`
+}
 
 type Class struct {
 	AI      *Level `json:"ai" bson:"ai"`
@@ -68,13 +69,28 @@ type Class struct {
 }
 
 type Level struct {
-	Premium bool `json:"premium" bson:"premium"`
-	Plan    Plan `json:"plan" bson:"plan"`
+	Premium          bool                    `json:"premium" bson:"premium"`
+	Plan             *Plan                   `json:"plan" bson:"plan"`
+	Payment          *Payment                `json:"payment" bson:"payment"`
+	PeriodOfValidity *cloud.PeriodOfValidity `json:"period_of_validity" bson:"period_of_validity"`
 }
 
 type Plan struct {
 	Type  string `json:"type" bson:"type"`
 	Level int    `json:"level" bson:"level"`
+}
+
+type Payment struct {
+	Desc     string         `json:"desc" bson:"desc"`
+	Kind     string         `json:"kind" bson:"kind"`
+	Currency string         `json:"currency" bson:"currency"`
+	Amount   *PaymentAmount `json:"amount" bson:"amount"`
+}
+
+type PaymentAmount struct {
+	Total    float64 `json:"total" bson:"total"`
+	Discount float64 `json:"discount" bson:"discount"`
+	Payable  float64 `json:"payable" bson:"payable"`
 }
 
 type Bills struct {
@@ -92,13 +108,13 @@ type AIBills struct {
 
 type ConnectBills struct {
 	Items     map[time.Time]uint64 `json:"items" bson:"items"`
-	Total     uint64               `json:"total" bson:"total"`
-	Yesterday uint64               `json:"yesterday" bson:"yesterday"`
-	LastWeek  uint64               `json:"last_week" bson:"last_week"`
-	LastMonth uint64               `json:"last_month" bson:"last_month"`
+	Total     *Events              `json:"total" bson:"total"`
+	Yesterday *Events              `json:"yesterday" bson:"yesterday"`
+	LastWeek  *Events              `json:"last_week" bson:"last_week"`
+	LastMonth *Events              `json:"last_month" bson:"last_month"`
 }
 
-type Usage struct {
+type Events struct {
 	Received  uint64 `json:"received" bson:"received"`
 	Delivered uint64 `json:"delivered" bson:"delivered"`
 	Total     uint64 `json:"total" bson:"total"`
@@ -118,6 +134,11 @@ type AIUsages struct {
 type ConnectUsages struct {
 	Connection int64 `json:"connection" bson:"connection"`
 }
+
+// type Usage struct {
+// 	Used  uint64 `json:"used" bson:"used"`
+// 	Total uint64 `json:"total" bson:"total"`
+// }
 
 type Credits struct {
 	Used     uint64 `json:"used" bson:"used"`

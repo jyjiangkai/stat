@@ -26,11 +26,18 @@ func (rs *RefreshService) getBills(ctx context.Context, oid string, now time.Tim
 }
 
 func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now time.Time) (*models.ConnectBills, error) {
+	var (
+		total     = &models.Events{}
+		yesterday = &models.Events{}
+		week      = &models.Events{}
+		month     = &models.Events{}
+	)
 	bills, err := rs.getConnectBills(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
 	stat := models.NewConnectBill()
+	yest := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
 	for idx := range bills {
 		billTime := utils.ToBillTimeForConnect(bills[idx].CollectedAt)
 		if _, ok := stat.Items[billTime]; ok {
@@ -38,18 +45,33 @@ func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now ti
 		} else {
 			stat.Items[billTime] = bills[idx].UsageNum
 		}
+		if billTime == yest {
+			yesterday.Received = bills[idx].ReceivedNum
+			yesterday.Delivered = bills[idx].UsageNum - bills[idx].ReceivedNum
+			yesterday.Total = bills[idx].UsageNum
+		}
 		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfWeek {
-			stat.LastWeek += bills[idx].UsageNum
+			week.Received += bills[idx].ReceivedNum
+			week.Total += bills[idx].UsageNum
 		}
 		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfMonth {
-			stat.LastMonth += bills[idx].UsageNum
+			month.Received += bills[idx].ReceivedNum
+			month.Total += bills[idx].UsageNum
 		}
-		stat.Total += bills[idx].UsageNum
+		total.Received += bills[idx].ReceivedNum
+		total.Total += bills[idx].UsageNum
 	}
-	yesterday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
-	if value, ok := stat.Items[yesterday]; ok {
-		stat.Yesterday = value
-	}
+	// yesterday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
+	// if value, ok := stat.Items[yesterday]; ok {
+	// 	stat.Yesterday = value
+	// }
+	total.Delivered = total.Total - total.Received
+	week.Delivered = week.Total - week.Received
+	month.Delivered = month.Total - month.Received
+	stat.Total = total
+	stat.Yesterday = yesterday
+	stat.LastWeek = week
+	stat.LastMonth = month
 	return stat, nil
 }
 
