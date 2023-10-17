@@ -13,6 +13,6 @@ type User struct {
 	FamilyName    string                 `json:"family_name" bson:"family_name"`
 	NickName      string                 `json:"nickname" bson:"nickname"`
 	CompanyName   string                 `json:"company_name" bson:"company_name"`
-	Industry      string                 `json:"industry"`
-	IndustryExtra string                 `json:"industry_extra"`
+	Industry      string                 `json:"industry" bson:"industry"`
+	IndustryExtra string                 `json:"industry_extra" bson:"industry_extra"`
 }

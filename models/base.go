@@ -98,6 +98,12 @@ type ConnectBills struct {
 	LastMonth uint64               `json:"last_month" bson:"last_month"`
 }
 
+type Usage struct {
+	Received  uint64 `json:"received" bson:"received"`
+	Delivered uint64 `json:"delivered" bson:"delivered"`
+	Total     uint64 `json:"total" bson:"total"`
+}
+
 type Usages struct {
 	AI      *AIUsages      `json:"ai" bson:"ai"`
 	Connect *ConnectUsages `json:"connect" bson:"connect"`

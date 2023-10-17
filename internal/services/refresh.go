@@ -54,27 +54,36 @@ func NewRefreshService(cli *mongo.Client) *RefreshService {
 func (rs *RefreshService) Start() error {
 	ctx := context.Background()
 	go func() {
-		ticker := time.NewTicker(time.Hour)
-		defer ticker.Stop()
-		defer log.Warn(ctx).Err(nil).Msg("refresh routine exit")
-		for {
-			select {
-			case <-rs.closeC:
-				log.Info(ctx).Msg("refresh service stopped.")
-				return
-			case <-ticker.C:
-				now := time.Now()
-				if now.Hour() == 1 {
-					log.Info(ctx).Msgf("start refresh user stat at: %+v\n", now)
-					err := rs.Refresh(ctx, now)
-					if err != nil {
-						log.Error(ctx).Err(err).Msgf("refresh user stat failed at %+v\n", time.Now())
-					}
-					log.Info(ctx).Msgf("finish refresh user stat at: %+v\n", time.Now())
-				}
-			}
+		now := time.Now()
+		log.Info(ctx).Msgf("start refresh user stat at: %+v\n", now)
+		err := rs.Refresh(ctx, now)
+		if err != nil {
+			log.Error(ctx).Err(err).Msgf("refresh user stat failed at %+v\n", time.Now())
 		}
+		log.Info(ctx).Msgf("finish refresh user stat at: %+v\n", time.Now())
 	}()
+	// go func() {
+	// 	ticker := time.NewTicker(time.Hour)
+	// 	defer ticker.Stop()
+	// 	defer log.Warn(ctx).Err(nil).Msg("refresh routine exit")
+	// 	for {
+	// 		select {
+	// 		case <-rs.closeC:
+	// 			log.Info(ctx).Msg("refresh service stopped.")
+	// 			return
+	// 		case <-ticker.C:
+	// 			now := time.Now()
+	// 			if now.Hour() == 1 {
+	// 				log.Info(ctx).Msgf("start refresh user stat at: %+v\n", now)
+	// 				err := rs.Refresh(ctx, now)
+	// 				if err != nil {
+	// 					log.Error(ctx).Err(err).Msgf("refresh user stat failed at %+v\n", time.Now())
+	// 				}
+	// 				log.Info(ctx).Msgf("finish refresh user stat at: %+v\n", time.Now())
+	// 			}
+	// 		}
+	// 	}
+	// }()
 	return nil
 }
 
