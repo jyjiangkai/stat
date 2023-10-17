@@ -36,7 +36,7 @@ type User struct {
 	NickName     string   `json:"nickname" bson:"nickname"`
 	CompanyName  string   `json:"company_name" bson:"company_name"`
 	CompanyEmail string   `json:"company_email" bson:"company_email"`
-	Industry     string   `json:"industry"`
+	Industry     string   `json:"industry" bson:"industry"`
 	Class        *Class   `json:"class" bson:"class"`
 	Bills        *Bills   `json:"bills" bson:"bills"`
 	Usages       *Usages  `json:"usages" bson:"usages"`
