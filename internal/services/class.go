@@ -62,7 +62,7 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 		log.Error(ctx).Err(err).Msg("failed to get payment")
 		return nil, db.HandleDBError(err)
 	}
-	return &models.Level{
+	level := &models.Level{
 		Premium: true,
 		Plan: &models.Plan{
 			Type:  userQuota.Plan.Type,
@@ -70,7 +70,11 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 		},
 		Payment:          payment,
 		PeriodOfValidity: userQuota.PeriodOfValidity,
-	}, nil
+	}
+	if payment.Currency == "" {
+		level.Premium = false
+	}
+	return level, nil
 }
 
 func (rs *RefreshService) getPayment(ctx context.Context, oid string, kind string) (*models.Payment, error) {
@@ -81,10 +85,10 @@ func (rs *RefreshService) getPayment(ctx context.Context, oid string, kind strin
 	opt := options.FindOneOptions{
 		Sort: bson.M{"created_at": -1},
 	}
-	result := rs.quotaColl.FindOne(ctx, query, &opt)
+	result := rs.paymentColl.FindOne(ctx, query, &opt)
 	if result.Err() != nil {
 		if result.Err() == mongo.ErrNoDocuments {
-			return &models.Payment{}, nil
+			return models.NewPayment(), nil
 		}
 	}
 	payment := &models.Payment{}

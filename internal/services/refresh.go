@@ -25,6 +25,7 @@ type RefreshService struct {
 	connectionColl      *mongo.Collection
 	userColl            *mongo.Collection
 	quotaColl           *mongo.Collection
+	paymentColl         *mongo.Collection
 	billColl            *mongo.Collection
 	aiBillColl          *mongo.Collection
 	aiAppColl           *mongo.Collection
@@ -41,6 +42,7 @@ func NewRefreshService(cli *mongo.Client) *RefreshService {
 		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
 		userColl:            cli.Database(db.GetDatabaseName()).Collection("users"),
 		quotaColl:           cli.Database(db.GetDatabaseName()).Collection("quotas"),
+		paymentColl:         cli.Database(db.GetDatabaseName()).Collection("payments"),
 		billColl:            cli.Database(db.GetDatabaseName()).Collection("bills"),
 		aiBillColl:          cli.Database(db.GetDatabaseName()).Collection("ai_bills"),
 		aiAppColl:           cli.Database(db.GetDatabaseName()).Collection("ai_app"),

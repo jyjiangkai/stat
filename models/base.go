@@ -81,10 +81,11 @@ type Plan struct {
 }
 
 type Payment struct {
-	Desc     string         `json:"desc" bson:"desc"`
-	Kind     string         `json:"kind" bson:"kind"`
-	Currency string         `json:"currency" bson:"currency"`
-	Amount   *PaymentAmount `json:"amount" bson:"amount"`
+	cloud.Base `json:",inline" bson:",inline"`
+	Desc       string         `json:"desc" bson:"desc"`
+	Kind       string         `json:"kind" bson:"kind"`
+	Currency   string         `json:"currency" bson:"currency"`
+	Amount     *PaymentAmount `json:"amount" bson:"amount"`
 }
 
 type PaymentAmount struct {
@@ -217,5 +218,11 @@ func NewAIBill() *AIBills {
 func NewConnectBill() *ConnectBills {
 	return &ConnectBills{
 		Items: make(map[time.Time]uint64),
+	}
+}
+
+func NewPayment() *Payment {
+	return &Payment{
+		Amount: &PaymentAmount{},
 	}
 }
