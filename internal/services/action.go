@@ -15,21 +15,24 @@ import (
 	"github.com/jyjiangkai/stat/api"
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/log"
+	"github.com/jyjiangkai/stat/mailchimp"
 	"github.com/jyjiangkai/stat/models"
 	"github.com/jyjiangkai/stat/models/cloud"
 )
 
 const (
-	DatabaseOfUserAnalytics      = "vanus_user_analytics"
-	ActionType                   = "action_type"
-	ActionTypeOfChat             = "chat"
-	ActionTypeOfUserInfoContinue = "user_info_continue"
+	DatabaseOfUserAnalytics        = "vanus_user_analytics"
+	ActionType                     = "action_type"
+	ActionTypeOfChat               = "chat"
+	ActionTypeOfRedirectChangePlan = "redirect_change_plan"
 )
 
 type ActionService struct {
 	cli        *mongo.Client
 	appColl    *mongo.Collection
+	statColl   *mongo.Collection
 	actionColl *mongo.Collection
+	trackColl  *mongo.Collection
 	appCache   sync.Map
 	closeC     chan struct{}
 }
@@ -38,7 +41,9 @@ func NewActionService(cli *mongo.Client) *ActionService {
 	return &ActionService{
 		cli:        cli,
 		appColl:    cli.Database(db.GetDatabaseName()).Collection("ai_app"),
+		statColl:   cli.Database(db.GetDatabaseName()).Collection("stats"),
 		actionColl: cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
+		trackColl:  cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
 		closeC:     make(chan struct{}),
 	}
 }
@@ -59,10 +64,115 @@ func (as *ActionService) Start() error {
 				if err != nil {
 					log.Error(ctx).Err(err).Msgf("failed to update user action time at %+v", time.Now())
 				}
+				now := time.Now()
+				if now.Weekday() == time.Monday && now.Hour() == 0 && now.Minute() == 0 {
+					as.weeklyViewPriceUserTracking(ctx, now)
+				}
 			}
 		}
 	}()
 	return nil
+}
+
+func (as *ActionService) weeklyViewPriceUserTracking(ctx context.Context, now time.Time) error {
+	log.Info(ctx).Msgf("start stat weekly view price user at: %+v\n", now)
+	users, counts, err := as.getViewPriceUsers(ctx, now)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to get view price users")
+		return err
+	}
+
+	query := bson.M{
+		"oidc_id": bson.M{
+			"$in": users,
+		},
+		"class.ai.premium":      false,
+		"class.connect.premium": false,
+	}
+	cursor, err := as.statColl.Find(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	for cursor.Next(ctx) {
+		user := &models.User{}
+		if err = cursor.Decode(user); err != nil {
+			return db.HandleDBError(err)
+		}
+		track := &models.Track{
+			User:  user.OID,
+			Tag:   ActionTypeOfRedirectChangePlan,
+			Count: counts[user.OID],
+			Time:  time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC),
+		}
+		_, err := as.trackColl.InsertOne(ctx, track)
+		if err != nil {
+			log.Error(ctx).Err(err).Any("track", track).Msg("failed to insert user track")
+			return db.HandleDBError(err)
+		}
+		if mailchimp.ValidateEmail(user.Email) {
+			tags := []string{ActionTypeOfRedirectChangePlan}
+			err := mailchimp.AddMember(ctx, user.Email, tags)
+			if err != nil {
+				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
+			}
+		}
+	}
+	log.Info(ctx).Msgf("finish stat weekly view price user at: %+v\n", time.Now())
+	return nil
+}
+
+func (as *ActionService) getViewPriceUsers(ctx context.Context, now time.Time) ([]string, map[string]uint64, error) {
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"action", "redirect_change_plan"},
+				{"website", bson.M{
+					"$ne": "https://ai.vanustest.com",
+				}},
+				{"time", bson.M{
+					"$gte": time.Now().UTC().Add(-1 * TimeDurationOfWeek).Format(time.RFC3339),
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$usersub"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+		{
+			{"$sort", bson.D{
+				{"count", -1},
+			}},
+		},
+	}
+	type countGroup struct {
+		UserID string `bson:"_id"`
+		Count  uint64 `bson:"count"`
+	}
+	cursor, err := as.actionColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		return nil, nil, err
+	}
+	defer cursor.Close(ctx)
+	users := make([]string, 0)
+	counts := make(map[string]uint64)
+	for cursor.Next(ctx) {
+		var countGroup countGroup
+		if err = cursor.Decode(&countGroup); err != nil {
+			return nil, nil, err
+		}
+		users = append(users, countGroup.UserID)
+		counts[countGroup.UserID] = countGroup.Count
+	}
+	return users, counts, nil
 }
 
 func (as *ActionService) Stop() error {

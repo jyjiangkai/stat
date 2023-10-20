@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jyjiangkai/stat/api"
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
 	"github.com/jyjiangkai/stat/log"
@@ -33,18 +34,18 @@ func main() {
 	}()
 
 	svc := services.NewUserService(cli)
-	// pg := api.Page{
-	// 	PageSize: 2,
-	// }
-	// filter := api.Filter{}
-	// opts := &api.ListOptions{
-	// 	KindSelector: "connect",
-	// 	TypeSelector: "marketing",
-	// }
-	err = svc.Start()
+	pg := api.Page{
+		PageSize: 2,
+	}
+	filter := api.Filter{}
+	opts := &api.ListOptions{
+		KindSelector: "connect",
+		TypeSelector: "marketing",
+	}
+	results, err := svc.List(ctx, pg, filter, opts)
 	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to start user service")
+		log.Error(ctx).Err(err).Msg("failed to list user")
 		return
 	}
-	log.Info(ctx).Msg("success to start user service")
+	log.Info(ctx).Any("result", results.List).Msg("success to list user")
 }

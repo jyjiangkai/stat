@@ -32,7 +32,7 @@ func main() {
 		_ = cli.Disconnect(ctx)
 	}()
 
-	svc := services.NewUserService(cli)
+	svc := services.NewActionService(cli)
 	// pg := api.Page{
 	// 	PageSize: 2,
 	// }
@@ -43,8 +43,8 @@ func main() {
 	// }
 	err = svc.Start()
 	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to start user service")
+		log.Error(ctx).Err(err).Msg("failed to start action service")
 		return
 	}
-	log.Info(ctx).Msg("success to start user service")
+	log.Info(ctx).Msg("success to start action service")
 }

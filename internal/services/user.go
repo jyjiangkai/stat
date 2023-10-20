@@ -42,6 +42,7 @@ type UserService struct {
 	statColl            *mongo.Collection
 	cohortColl          *mongo.Collection
 	creditColl          *mongo.Collection
+	trackColl           *mongo.Collection
 	closeC              chan struct{}
 }
 
@@ -59,6 +60,7 @@ func NewUserService(cli *mongo.Client) *UserService {
 		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
 		cohortColl:          cli.Database(db.GetDatabaseName()).Collection("weekly_cohort"),
 		creditColl:          cli.Database(db.GetDatabaseName()).Collection("credits"),
+		trackColl:           cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
 		closeC:              make(chan struct{}),
 	}
 }
@@ -96,11 +98,22 @@ func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, n
 	}
 	result, err := us.List(ctx, pg, filter, opts)
 	if err != nil {
-		log.Error(ctx).Msgf("stat weekly no knownledge base user failed at %+v\n", now)
+		log.Error(ctx).Err(err).Msgf("stat weekly no knownledge base user failed at %+v\n", now)
 		return err
 	}
 	for idx := range result.List {
 		user := result.List[idx].(*models.User)
+		track := &models.Track{
+			User:  user.OID,
+			Tag:   UserTypeOfNoKnownledgeBase,
+			Count: 0,
+			Time:  time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC),
+		}
+		_, err := us.trackColl.InsertOne(ctx, track)
+		if err != nil {
+			log.Error(ctx).Err(err).Any("track", track).Msg("failed to insert user track")
+			return db.HandleDBError(err)
+		}
 		if mailchimp.ValidateEmail(user.Email) {
 			tags := []string{"vanus_ai", UserTypeOfNoKnownledgeBase}
 			err := mailchimp.AddMember(ctx, user.Email, tags)
@@ -123,11 +136,22 @@ func (us *UserService) weeklyHighKnownledgeBaseUserTracking(ctx context.Context,
 	}
 	result, err := us.List(ctx, pg, filter, opts)
 	if err != nil {
-		log.Error(ctx).Msgf("stat weekly high knownledge base user failed at %+v\n", now)
+		log.Error(ctx).Err(err).Msgf("stat weekly high knownledge base user failed at %+v\n", now)
 		return err
 	}
 	for idx := range result.List {
 		user := result.List[idx].(*models.User)
+		track := &models.Track{
+			User:  user.OID,
+			Tag:   UserTypeOfHighKnownledgeBase,
+			Count: 0,
+			Time:  time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC),
+		}
+		_, err := us.trackColl.InsertOne(ctx, track)
+		if err != nil {
+			log.Error(ctx).Err(err).Any("track", track).Msg("failed to insert user track")
+			return db.HandleDBError(err)
+		}
 		if mailchimp.ValidateEmail(user.Email) {
 			tags := []string{"vanus_ai", UserTypeOfHighKnownledgeBase}
 			err := mailchimp.AddMember(ctx, user.Email, tags)
