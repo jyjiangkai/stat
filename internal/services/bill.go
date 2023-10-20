@@ -46,9 +46,9 @@ func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now ti
 			stat.Items[billTime] = bills[idx].UsageNum
 		}
 		if billTime == yest {
-			yesterday.Received = bills[idx].ReceivedNum
-			yesterday.Delivered = bills[idx].UsageNum - bills[idx].ReceivedNum
-			yesterday.Total = bills[idx].UsageNum
+			yesterday.Received += bills[idx].ReceivedNum
+			yesterday.Delivered += bills[idx].DeliveredNum
+			yesterday.Total += bills[idx].UsageNum
 		}
 		if time.Since(bills[idx].CollectedAt) <= TimeDurationOfWeek {
 			week.Received += bills[idx].ReceivedNum

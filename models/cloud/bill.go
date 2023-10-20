@@ -16,6 +16,7 @@ type Bill struct {
 	ReceivedNum    uint64             `json:"received_num" bson:"received_num"`
 	SourceID       primitive.ObjectID `json:"source_id" bson:"source_id"`
 	SinkID         primitive.ObjectID `json:"sink_id" bson:"sink_id"`
+	DeliveredNum   uint64             `json:"delivered_num" bson:"delivered_num"`
 	UsageNum       uint64             `json:"usage_num" bson:"usage_num"`
 }
 
