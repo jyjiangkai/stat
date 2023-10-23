@@ -86,8 +86,15 @@ func (as *ActionService) weeklyViewPriceUserTracking(ctx context.Context, now ti
 		"oidc_id": bson.M{
 			"$in": users,
 		},
-		"class.ai.premium":      false,
-		"class.connect.premium": false,
+		"email": bson.M{
+			"$not": bson.M{
+				"$regex": "linkall.com|vanus.ai",
+			},
+		},
+		"class.ai.premium":         false,
+		"class.connect.premium":    false,
+		"bills.ai.total":           bson.M{"$ne": 0},
+		"usages.ai.knowledge_base": bson.M{"$gte": 2},
 	}
 	cursor, err := as.statColl.Find(ctx, query)
 	if err != nil {
@@ -134,7 +141,7 @@ func (as *ActionService) getViewPriceUsers(ctx context.Context, now time.Time) (
 					"$ne": "https://ai.vanustest.com",
 				}},
 				{"time", bson.M{
-					"$gte": time.Now().UTC().Add(-1 * TimeDurationOfWeek).Format(time.RFC3339),
+					"$gte": now.UTC().Add(-1 * TimeDurationOfWeek).Format(time.RFC3339),
 				}},
 			}},
 		},

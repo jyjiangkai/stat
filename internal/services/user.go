@@ -356,16 +356,11 @@ func (us *UserService) listHighKnownledgeBaseUsers(ctx context.Context, pg api.P
 		}, nil
 	}
 
-	// users, err := us.getLastWeekCreatedKnowledgeBaseUserList(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	query := bson.M{
 		"created_at": bson.M{
 			"$gte": time.Now().Add(-1 * TimeDurationOfWeek),
-			// "$lte": end,
+			// "$lte": now,
 		},
-		// "oidc_id":          bson.M{"$in": users},
 		"class.ai.premium":         false,
 		"bills.ai.total":           bson.M{"$ne": 0},
 		"usages.ai.knowledge_base": bson.M{"$gte": 2},

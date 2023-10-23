@@ -7,6 +7,7 @@ import (
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
 	"github.com/jyjiangkai/stat/log"
+	"github.com/jyjiangkai/stat/mailchimp"
 )
 
 var (
@@ -31,16 +32,13 @@ func main() {
 	defer func() {
 		_ = cli.Disconnect(ctx)
 	}()
+	mailchimpCfg := mailchimp.Config{
+		Enable:     true,
+		WebhookUrl: "https://0lj80uzusozxlooq.connector.vanus.ai/api/v1/source/http/650439c93f0b52737fe5b8d0",
+	}
+	mailchimp.Init(ctx, mailchimpCfg)
 
 	svc := services.NewActionService(cli)
-	// pg := api.Page{
-	// 	PageSize: 2,
-	// }
-	// filter := api.Filter{}
-	// opts := &api.ListOptions{
-	// 	KindSelector: "connect",
-	// 	TypeSelector: "marketing",
-	// }
 	err = svc.Start()
 	if err != nil {
 		log.Error(ctx).Err(err).Msg("failed to start action service")
