@@ -64,8 +64,13 @@ func (ac *ActionController) List(ctx *gin.Context) (any, error) {
 }
 
 func (ac *ActionController) Get(ctx *gin.Context) (any, error) {
+	pg := api.Page{}
+	if err := ctx.BindQuery(&pg); err != nil {
+		return nil, api.ErrParsePaging
+	}
+	pg.SortBy = "time"
 	opts := &api.GetOptions{}
-	result, err := ac.svc.Get(ctx, ctx.Param(ParamOfUserOID), opts)
+	result, err := ac.svc.Get(ctx, ctx.Param(ParamOfUserOID), pg, opts)
 	if err != nil {
 		return nil, err
 	}

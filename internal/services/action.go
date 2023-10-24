@@ -377,7 +377,88 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 	}, nil
 }
 
-func (as *ActionService) Get(ctx context.Context, oid string, opts *api.GetOptions) (*models.UserDetail, error) {
+func (as *ActionService) Get(ctx context.Context, oid string, pg api.Page, opts *api.GetOptions) (*models.UserDetail, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+	)
+
+	if skip < 0 {
+		skip = 0
+	}
+
+	query := bson.M{
+		"website": bson.M{
+			"$ne": "https://ai.vanustest.com",
+		},
+	}
+
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	} else {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := as.actionColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		action := &models.Action{}
+		if err = cursor.Decode(action); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		if action.Payload.AppID != "" {
+			if app, ok := as.appCache.Load(action.Payload.AppID); ok {
+				action.App = app.(*models.ActionApp)
+			} else {
+				id, _ := primitive.ObjectIDFromHex(action.Payload.AppID)
+				result := as.appColl.FindOne(ctx, bson.M{"_id": id})
+				if result.Err() != nil {
+					return nil, db.HandleDBError(result.Err())
+				}
+				app := &cloud.App{}
+				if err := result.Decode(app); err != nil {
+					return nil, db.HandleDBError(err)
+				}
+				actionApp := &models.ActionApp{
+					Name:     app.Name,
+					Type:     app.Type,
+					Model:    app.Model,
+					Status:   string(app.Status),
+					Greeting: app.Greeting,
+					Prompt:   app.Prompt,
+				}
+				action.App = actionApp
+				as.appCache.Store(action.Payload.AppID, actionApp)
+			}
+		} else {
+			action.App = models.NewActionApp()
+		}
+		list = append(list, action)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
 	return nil, nil
 }
 
