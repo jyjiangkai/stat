@@ -34,10 +34,10 @@ func main() {
 	}()
 
 	now := time.Now()
-	svc := services.NewRefreshService(cli)
-	if err := svc.Refresh(ctx, now); err != nil {
-		log.Error(ctx).Err(err).Msg("failed to refresh user stat")
+	svc := services.NewStatService(cli)
+	if err := svc.DailyStat(ctx, now); err != nil {
+		log.Error(ctx).Err(err).Msg("failed to stat daily data")
 		return
 	}
-	log.Info(ctx).Msg("success to refresh user stat")
+	log.Info(ctx).Msg("success to stat daily data")
 }

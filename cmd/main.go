@@ -95,9 +95,9 @@ func main() {
 		controller.NewActionController(actionService),
 	)
 
-	refreshService := services.NewRefreshService(cli)
-	if err = refreshService.Start(); err != nil {
-		panic("failed to start refresh service: " + err.Error())
+	statService := services.NewStatService(cli)
+	if err = statService.Start(); err != nil {
+		panic("failed to start stat service: " + err.Error())
 	}
 
 	alarmService := services.NewAlarmService(cli)

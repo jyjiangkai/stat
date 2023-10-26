@@ -136,11 +136,6 @@ type ConnectUsages struct {
 	Connection int64 `json:"connection" bson:"connection"`
 }
 
-// type Usage struct {
-// 	Used  uint64 `json:"used" bson:"used"`
-// 	Total uint64 `json:"total" bson:"total"`
-// }
-
 type Credits struct {
 	Used     uint64 `json:"used" bson:"used"`
 	Total    uint64 `json:"total" bson:"total"`
@@ -207,6 +202,22 @@ type RegionInfo struct {
 	Token                  string `bson:"token"`
 	ExternalDNS            string `bson:"external_dns"`
 	IntegrationExternalDNS string `bson:"integration_external_dns"`
+}
+
+type Daily struct {
+	Date                        time.Time `json:"date" bson:"date"`
+	RegisterUserNumber          int64     `json:"register_user_number" bson:"register_user_number"`
+	LoginUserNumber             int64     `json:"login_user_number" bson:"login_user_number"`
+	ConnectionCreatedUserNumber int64     `json:"connection_created_user_number" bson:"connection_created_user_number"`
+	AppCreatedUserNumber        int64     `json:"app_created_user_number" bson:"app_created_user_number"`
+	ConnectionUsedUserNumber    int64     `json:"connection_used_user_number" bson:"connection_used_user_number"`
+	AppUsedUserNumber           int64     `json:"app_used_user_number" bson:"app_used_user_number"`
+}
+
+type ActiveUserNumber struct {
+	Date    time.Time `json:"_id" bson:"_id"`
+	Connect int64     `json:"connect" bson:"connect"`
+	AI      int64     `json:"ai" bson:"ai"`
 }
 
 func NewAIBill() *AIBills {

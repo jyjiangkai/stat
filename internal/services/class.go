@@ -13,12 +13,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (rs *RefreshService) getClass(ctx context.Context, oid string, now time.Time) (*models.Class, error) {
-	aiLevel, err := rs.getLevel(ctx, oid, "ai", now)
+func (ss *StatService) getClass(ctx context.Context, oid string, now time.Time) (*models.Class, error) {
+	aiLevel, err := ss.getLevel(ctx, oid, "ai", now)
 	if err != nil {
 		return nil, err
 	}
-	connectLevel, err := rs.getLevel(ctx, oid, "cloud", now)
+	connectLevel, err := ss.getLevel(ctx, oid, "cloud", now)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (rs *RefreshService) getClass(ctx context.Context, oid string, now time.Tim
 	}, nil
 }
 
-func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string, now time.Time) (*models.Level, error) {
+func (ss *StatService) getLevel(ctx context.Context, oid string, kind string, now time.Time) (*models.Level, error) {
 	query := bson.M{
 		"created_by": oid,
 		"plan.kind":  kind,
@@ -39,7 +39,7 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 			"$gte": now,
 		},
 	}
-	result := rs.quotaColl.FindOne(ctx, query)
+	result := ss.quotaColl.FindOne(ctx, query)
 	if result.Err() != nil {
 		if result.Err() == mongo.ErrNoDocuments {
 			return &models.Level{
@@ -57,7 +57,7 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 		return nil, db.HandleDBError(err)
 	}
 
-	payment, err := rs.getPayment(ctx, oid, kind)
+	payment, err := ss.getPayment(ctx, oid, kind)
 	if err != nil {
 		log.Error(ctx).Err(err).Msg("failed to get payment")
 		return nil, db.HandleDBError(err)
@@ -77,7 +77,7 @@ func (rs *RefreshService) getLevel(ctx context.Context, oid string, kind string,
 	return level, nil
 }
 
-func (rs *RefreshService) getPayment(ctx context.Context, oid string, kind string) (*models.Payment, error) {
+func (ss *StatService) getPayment(ctx context.Context, oid string, kind string) (*models.Payment, error) {
 	query := bson.M{
 		"created_by": oid,
 		"kind":       kind,
@@ -85,7 +85,7 @@ func (rs *RefreshService) getPayment(ctx context.Context, oid string, kind strin
 	opt := options.FindOneOptions{
 		Sort: bson.M{"created_at": -1},
 	}
-	result := rs.paymentColl.FindOne(ctx, query, &opt)
+	result := ss.paymentColl.FindOne(ctx, query, &opt)
 	if result.Err() != nil {
 		if result.Err() == mongo.ErrNoDocuments {
 			return models.NewPayment(), nil

@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/log"
 	"github.com/jyjiangkai/stat/models"
 	"github.com/jyjiangkai/stat/models/cloud"
@@ -35,14 +34,15 @@ type CohortService struct {
 func NewCohortService(cli *mongo.Client) *CohortService {
 	return &CohortService{
 		mgoCli:     cli,
-		statColl:   cli.Database(db.GetDatabaseName()).Collection("stats"),
-		cohortColl: cli.Database(db.GetDatabaseName()).Collection("weekly_cohort"),
+		statColl:   cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
+		cohortColl: cli.Database(DatabaseOfUserStatistics).Collection("weekly_cohort"),
 		closeC:     make(chan struct{}),
 	}
 }
 
 func (cs *CohortService) Start() error {
 	ctx := context.Background()
+	log.Info(ctx).Msgf("finish weekly cohort analysis at: %+v\n", time.Now())
 	go func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
@@ -315,13 +315,13 @@ func GetNextWeek(week *models.Week) *models.Week {
 	}
 }
 
-func (rs *RefreshService) GetCohort(ctx context.Context, user *cloud.User) (*models.Cohort, error) {
+func (ss *StatService) GetCohort(ctx context.Context, user *cloud.User) (*models.Cohort, error) {
 	week := TimeToWeek(user.CreatedAt)
-	aiRetention, err := rs.getAIRetention(ctx, user.OID, week)
+	aiRetention, err := ss.getAIRetention(ctx, user.OID, week)
 	if err != nil {
 		return nil, err
 	}
-	ctRetention, err := rs.getConnectRetention(ctx, user.OID, week)
+	ctRetention, err := ss.getConnectRetention(ctx, user.OID, week)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (rs *RefreshService) GetCohort(ctx context.Context, user *cloud.User) (*mod
 	}, nil
 }
 
-func (rs *RefreshService) getAIRetention(ctx context.Context, oid string, week0 *models.Week) (map[string]*models.Retention, error) {
+func (ss *StatService) getAIRetention(ctx context.Context, oid string, week0 *models.Week) (map[string]*models.Retention, error) {
 	results := make(map[string]*models.Retention)
 	week := &models.Week{
 		Number: week0.Number,
@@ -341,7 +341,7 @@ func (rs *RefreshService) getAIRetention(ctx context.Context, oid string, week0 
 		End:    week0.End,
 	}
 	for {
-		retention, err := rs.getAIWeekUsage(ctx, oid, week)
+		retention, err := ss.getAIWeekUsage(ctx, oid, week)
 		if err != nil {
 			return nil, err
 		}
@@ -354,7 +354,7 @@ func (rs *RefreshService) getAIRetention(ctx context.Context, oid string, week0 
 	return results, nil
 }
 
-func (rs *RefreshService) getAIWeekUsage(ctx context.Context, oid string, week *models.Week) (*models.Retention, error) {
+func (ss *StatService) getAIWeekUsage(ctx context.Context, oid string, week *models.Week) (*models.Retention, error) {
 	pipeline := mongo.Pipeline{
 		{
 			{"$match", bson.M{
@@ -383,7 +383,7 @@ func (rs *RefreshService) getAIWeekUsage(ctx context.Context, oid string, week *
 		User  string `bson:"_id"`
 		Usage uint64 `bson:"usage"`
 	}
-	cursor, err := rs.aiBillColl.Aggregate(ctx, pipeline)
+	cursor, err := ss.aiBillColl.Aggregate(ctx, pipeline)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			log.Warn(ctx).Msg("no documents")
@@ -420,7 +420,7 @@ func (rs *RefreshService) getAIWeekUsage(ctx context.Context, oid string, week *
 	return retention, nil
 }
 
-func (rs *RefreshService) getConnectRetention(ctx context.Context, oid string, week0 *models.Week) (map[string]*models.Retention, error) {
+func (ss *StatService) getConnectRetention(ctx context.Context, oid string, week0 *models.Week) (map[string]*models.Retention, error) {
 	results := make(map[string]*models.Retention)
 	week := &models.Week{
 		Number: week0.Number,
@@ -429,7 +429,7 @@ func (rs *RefreshService) getConnectRetention(ctx context.Context, oid string, w
 		End:    week0.End,
 	}
 	for {
-		retention, err := rs.getConnectWeekUsage(ctx, oid, week)
+		retention, err := ss.getConnectWeekUsage(ctx, oid, week)
 		if err != nil {
 			return nil, err
 		}
@@ -442,7 +442,7 @@ func (rs *RefreshService) getConnectRetention(ctx context.Context, oid string, w
 	return results, nil
 }
 
-func (rs *RefreshService) getConnectWeekUsage(ctx context.Context, oid string, week *models.Week) (*models.Retention, error) {
+func (ss *StatService) getConnectWeekUsage(ctx context.Context, oid string, week *models.Week) (*models.Retention, error) {
 	pipeline := mongo.Pipeline{
 		{
 			{"$match", bson.M{
@@ -466,7 +466,7 @@ func (rs *RefreshService) getConnectWeekUsage(ctx context.Context, oid string, w
 		User  string `bson:"_id"`
 		Usage uint64 `bson:"usage"`
 	}
-	cursor, err := rs.billColl.Aggregate(ctx, pipeline)
+	cursor, err := ss.billColl.Aggregate(ctx, pipeline)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			log.Warn(ctx).Msg("no documents")

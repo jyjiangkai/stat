@@ -18,10 +18,12 @@ import (
 )
 
 const (
+	UserTypeOfRegister           = "register"
 	UserTypeOfPremium            = "premium"
 	UserTypeOfNoKnownledgeBase   = "no_knowledge_base"
 	UserTypeOfHighKnownledgeBase = "high_knowledge_base"
 	UserTypeOfCohort             = "cohort"
+	UserTypeOfDailyUserNumber    = "daily_user_number"
 )
 
 var (
@@ -31,6 +33,7 @@ var (
 
 type UserService struct {
 	cli                 *mongo.Client
+	userColl            *mongo.Collection
 	appColl             *mongo.Collection
 	billColl            *mongo.Collection
 	aiBillColl          *mongo.Collection
@@ -39,7 +42,8 @@ type UserService struct {
 	aiKnowledgeBaseColl *mongo.Collection
 	connectorColl       *mongo.Collection
 	connectionColl      *mongo.Collection
-	statColl            *mongo.Collection
+	userStatColl        *mongo.Collection
+	dailyStatColl       *mongo.Collection
 	cohortColl          *mongo.Collection
 	creditColl          *mongo.Collection
 	trackColl           *mongo.Collection
@@ -49,6 +53,7 @@ type UserService struct {
 func NewUserService(cli *mongo.Client) *UserService {
 	return &UserService{
 		cli:                 cli,
+		userColl:            cli.Database(db.GetDatabaseName()).Collection("users"),
 		appColl:             cli.Database(db.GetDatabaseName()).Collection("ai_app"),
 		billColl:            cli.Database(db.GetDatabaseName()).Collection("bills"),
 		aiBillColl:          cli.Database(db.GetDatabaseName()).Collection("ai_bills"),
@@ -57,9 +62,10 @@ func NewUserService(cli *mongo.Client) *UserService {
 		aiKnowledgeBaseColl: cli.Database(db.GetDatabaseName()).Collection("ai_knowledge_bases"),
 		connectorColl:       cli.Database(db.GetDatabaseName()).Collection("connectors"),
 		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
-		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
-		cohortColl:          cli.Database(db.GetDatabaseName()).Collection("weekly_cohort"),
 		creditColl:          cli.Database(db.GetDatabaseName()).Collection("credits"),
+		userStatColl:        cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
+		dailyStatColl:       cli.Database(DatabaseOfUserStatistics).Collection("daily_stats"),
+		cohortColl:          cli.Database(DatabaseOfUserStatistics).Collection("weekly_cohort"),
 		trackColl:           cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
 		closeC:              make(chan struct{}),
 	}
@@ -171,6 +177,8 @@ func (us *UserService) Stop() error {
 func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("user service list api")
 	switch opts.TypeSelector {
+	case UserTypeOfRegister:
+		return us.listRegisterUsers(ctx, pg, filter, opts)
 	case UserTypeOfPremium:
 		return us.listPremiumUsers(ctx, pg, filter, opts)
 	case UserTypeOfNoKnownledgeBase:
@@ -179,6 +187,8 @@ func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter,
 		return us.listHighKnownledgeBaseUsers(ctx, pg, opts)
 	case UserTypeOfCohort:
 		return us.listCohortUsers(ctx, pg, opts)
+	case UserTypeOfDailyUserNumber:
+		return us.listDailyUserNumber(ctx, pg, opts)
 	default:
 		return us.list(ctx, pg, filter, opts)
 	}
@@ -202,7 +212,7 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 		query["usages.connect.connection"] = bson.M{"$ne": 0}
 	}
 	log.Info(ctx).Any("query", query).Msg("show user list api query criteria")
-	cnt, err := us.statColl.CountDocuments(ctx, query)
+	cnt, err := us.userStatColl.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +238,80 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 		Skip:  &skip,
 		Sort:  sort,
 	}
-	cursor, err := us.statColl.Find(ctx, query, &opt)
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		user := &models.User{}
+		if err = cursor.Decode(user); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		list = append(list, user)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (us *UserService) listRegisterUsers(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+	)
+
+	if skip < 0 {
+		skip = 0
+	}
+
+	start, end, err := us.getRangeOfTime(ctx, pg.Range)
+	if err != nil {
+		return nil, err
+	}
+	query := addFilter(ctx, filter)
+	query["created_at"] = bson.M{
+		"$gte": start,
+		"$lte": end,
+	}
+	cnt, err := us.userColl.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+	if cnt <= skip {
+		return nil, api.ErrPageArgumentsTooLarge
+	}
+
+	pg.Total = cnt
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &api.ListResult{
@@ -272,7 +355,7 @@ func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter
 	} else if opts.KindSelector == "connect" {
 		query["class.connect.premium"] = true
 	}
-	cnt, err := us.statColl.CountDocuments(ctx, query)
+	cnt, err := us.userStatColl.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +381,7 @@ func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter
 		Skip:  &skip,
 		Sort:  sort,
 	}
-	cursor, err := us.statColl.Find(ctx, query, &opt)
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &api.ListResult{
@@ -371,7 +454,7 @@ func (us *UserService) listHighKnownledgeBaseUsers(ctx context.Context, pg api.P
 		Skip:  &skip,
 		Sort:  sort,
 	}
-	cursor, err := us.statColl.Find(ctx, query, &opt)
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &api.ListResult{
@@ -436,7 +519,7 @@ func (us *UserService) listNoKnownledgeBaseUsers(ctx context.Context, pg api.Pag
 		Skip:  &skip,
 		Sort:  sort,
 	}
-	cursor, err := us.statColl.Find(ctx, query, &opt)
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &api.ListResult{
@@ -466,7 +549,10 @@ func (us *UserService) listNoKnownledgeBaseUsers(ctx context.Context, pg api.Pag
 
 func (us *UserService) listCohortUsers(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	query := bson.M{}
-	cursor, err := us.cohortColl.Find(ctx, query)
+	opt := options.FindOptions{
+		Sort: bson.M{"week.number": 1},
+	}
+	cursor, err := us.cohortColl.Find(ctx, query, &opt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &api.ListResult{
@@ -487,6 +573,43 @@ func (us *UserService) listCohortUsers(ctx context.Context, pg api.Page, opts *a
 			return nil, db.HandleDBError(err)
 		}
 		list = append(list, cohort)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (us *UserService) listDailyUserNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	query := bson.M{
+		"date": bson.M{
+			"$gte": us.getRangeStartAt(ctx, pg.Range),
+			// "$lte": end,
+		},
+	}
+	opt := options.FindOptions{
+		Sort: bson.M{"date": 1},
+	}
+	cursor, err := us.dailyStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				List: []interface{}{},
+				P:    pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		daily := &models.Daily{}
+		if err = cursor.Decode(daily); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		list = append(list, daily)
 	}
 	return &api.ListResult{
 		List: list,
@@ -625,7 +748,7 @@ func (us *UserService) getUserCredits(ctx context.Context, oid string, ctype str
 // 			"$lte": week.End,
 // 		},
 // 	}
-// 	cursor, err := us.statColl.Find(ctx, query)
+// 	cursor, err := us.userStatColl.Find(ctx, query)
 // 	if err != nil {
 // 		return retentions, 0, err
 // 	}
@@ -755,4 +878,40 @@ func (us *UserService) getLastWeekUsageUserList(ctx context.Context) ([]string, 
 		userMap[usageGroup.User] = usageGroup.Usage
 	}
 	return userList, userMap, nil
+}
+
+func (us *UserService) getRangeStartAt(ctx context.Context, rg string) time.Time {
+	now := time.Now()
+	switch rg {
+	case "Month":
+		startAt := now.AddDate(0, -1, 0)
+		return time.Date(startAt.Year(), startAt.Month(), startAt.Day(), 0, 0, 0, 0, time.UTC)
+	case "Three Months":
+		startAt := now.AddDate(0, -3, 0)
+		return time.Date(startAt.Year(), startAt.Month(), startAt.Day(), 0, 0, 0, 0, time.UTC)
+	case "Six Months":
+		startAt := now.AddDate(0, -6, 0)
+		return time.Date(startAt.Year(), startAt.Month(), startAt.Day(), 0, 0, 0, 0, time.UTC)
+	case "Year":
+		startAt := now.AddDate(-1, 0, 0)
+		if startAt.Before(StartAt) {
+			return StartAt
+		}
+		return time.Date(startAt.Year(), startAt.Month(), startAt.Day(), 0, 0, 0, 0, time.UTC)
+	default:
+		return StartAt
+	}
+}
+
+func (us *UserService) getRangeOfTime(ctx context.Context, rg string) (time.Time, time.Time, error) {
+	now := time.Now()
+	if rg == "" {
+		return now, now, api.ErrParseRange.WithMessage("range is empty")
+	}
+	layout := "2006-01-02"
+	date, err := time.Parse(layout, rg)
+	if err != nil {
+		return now, now, err
+	}
+	return date, date.AddDate(0, 0, 1), nil
 }

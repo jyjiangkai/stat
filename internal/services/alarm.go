@@ -19,32 +19,24 @@ const (
 )
 
 type AlarmService struct {
-	mgoCli              *mongo.Client
-	connectionColl      *mongo.Collection
-	userColl            *mongo.Collection
-	quotaColl           *mongo.Collection
-	billColl            *mongo.Collection
-	aiBillColl          *mongo.Collection
-	aiAppColl           *mongo.Collection
-	aiUploadColl        *mongo.Collection
-	aiKnowledgeBaseColl *mongo.Collection
-	statColl            *mongo.Collection
-	closeC              chan struct{}
+	mgoCli         *mongo.Client
+	connectionColl *mongo.Collection
+	userColl       *mongo.Collection
+	quotaColl      *mongo.Collection
+	billColl       *mongo.Collection
+	aiBillColl     *mongo.Collection
+	closeC         chan struct{}
 }
 
 func NewAlarmService(cli *mongo.Client) *AlarmService {
 	return &AlarmService{
-		mgoCli:              cli,
-		connectionColl:      cli.Database(db.GetDatabaseName()).Collection("connections"),
-		userColl:            cli.Database(db.GetDatabaseName()).Collection("users"),
-		quotaColl:           cli.Database(db.GetDatabaseName()).Collection("quotas"),
-		billColl:            cli.Database(db.GetDatabaseName()).Collection("bills"),
-		aiBillColl:          cli.Database(db.GetDatabaseName()).Collection("ai_bills"),
-		aiAppColl:           cli.Database(db.GetDatabaseName()).Collection("ai_app"),
-		aiUploadColl:        cli.Database(db.GetDatabaseName()).Collection("ai_upload"),
-		aiKnowledgeBaseColl: cli.Database(db.GetDatabaseName()).Collection("ai_knowledge_bases"),
-		statColl:            cli.Database(db.GetDatabaseName()).Collection("stats"),
-		closeC:              make(chan struct{}),
+		mgoCli:         cli,
+		connectionColl: cli.Database(db.GetDatabaseName()).Collection("connections"),
+		userColl:       cli.Database(db.GetDatabaseName()).Collection("users"),
+		quotaColl:      cli.Database(db.GetDatabaseName()).Collection("quotas"),
+		billColl:       cli.Database(db.GetDatabaseName()).Collection("bills"),
+		aiBillColl:     cli.Database(db.GetDatabaseName()).Collection("ai_bills"),
+		closeC:         make(chan struct{}),
 	}
 }
 
