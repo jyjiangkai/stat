@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -907,6 +908,9 @@ func (us *UserService) getRangeOfTime(ctx context.Context, rg string) (time.Time
 	now := time.Now()
 	if rg == "" {
 		return now, now, api.ErrParseRange.WithMessage("range is empty")
+	}
+	if strings.Contains(rg, "T") {
+		rg = strings.Split(rg, "T")[0]
 	}
 	layout := "2006-01-02"
 	date, err := time.Parse(layout, rg)
