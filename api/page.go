@@ -11,7 +11,7 @@ type Page struct {
 	PageNumber int64  `json:"page_number" form:"page_number,default=0"`
 	SortBy     string `json:"sort_by" form:"sort_by,default=created_at"`
 	Direction  string `json:"direction" form:"direction,default=desc"`
-	Reg        string `json:"region,omitempty" form:"region"`
+	Range      string `json:"range" form:"range"`
 	// Token      string        `json:"token,omitempty"` // reserve
 }
 

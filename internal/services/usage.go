@@ -8,12 +8,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (rs *RefreshService) getUsages(ctx context.Context, oid string) (*models.Usages, error) {
-	aiUsages, err := rs.getAIUsages(ctx, oid)
+func (ss *StatService) getUsages(ctx context.Context, oid string) (*models.Usages, error) {
+	aiUsages, err := ss.getAIUsages(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
-	connectUsages, err := rs.getConnectUsages(ctx, oid)
+	connectUsages, err := ss.getConnectUsages(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func (rs *RefreshService) getUsages(ctx context.Context, oid string) (*models.Us
 	}, nil
 }
 
-func (rs *RefreshService) getAIUsages(ctx context.Context, oid string) (*models.AIUsages, error) {
+func (ss *StatService) getAIUsages(ctx context.Context, oid string) (*models.AIUsages, error) {
 	usages := &models.AIUsages{}
 	uploadQuery := bson.M{
 		"created_by": oid,
@@ -31,7 +31,7 @@ func (rs *RefreshService) getAIUsages(ctx context.Context, oid string) (*models.
 			"$ne": "deleted",
 		},
 	}
-	uploadNum, err := rs.aiUploadColl.CountDocuments(ctx, uploadQuery)
+	uploadNum, err := ss.aiUploadColl.CountDocuments(ctx, uploadQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (rs *RefreshService) getAIUsages(ctx context.Context, oid string) (*models.
 			"$ne": "deleted",
 		},
 	}
-	cursor, err := rs.aiAppColl.Find(ctx, appQuery)
+	cursor, err := ss.aiAppColl.Find(ctx, appQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (rs *RefreshService) getAIUsages(ctx context.Context, oid string) (*models.
 	return usages, nil
 }
 
-func (rs *RefreshService) getConnectUsages(ctx context.Context, oid string) (*models.ConnectUsages, error) {
+func (ss *StatService) getConnectUsages(ctx context.Context, oid string) (*models.ConnectUsages, error) {
 	usages := &models.ConnectUsages{}
 	query := bson.M{
 		"created_by": oid,
@@ -76,7 +76,7 @@ func (rs *RefreshService) getConnectUsages(ctx context.Context, oid string) (*mo
 			"$ne": "deleted",
 		},
 	}
-	num, err := rs.connectionColl.CountDocuments(ctx, query)
+	num, err := ss.connectionColl.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, err
 	}

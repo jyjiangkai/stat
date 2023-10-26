@@ -41,7 +41,7 @@ func NewActionService(cli *mongo.Client) *ActionService {
 	return &ActionService{
 		cli:        cli,
 		appColl:    cli.Database(db.GetDatabaseName()).Collection("ai_app"),
-		statColl:   cli.Database(db.GetDatabaseName()).Collection("stats"),
+		statColl:   cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
 		actionColl: cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
 		trackColl:  cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
 		closeC:     make(chan struct{}),

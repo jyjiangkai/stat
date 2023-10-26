@@ -10,12 +10,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (rs *RefreshService) getBills(ctx context.Context, oid string, now time.Time) (*models.Bills, error) {
-	aiBill, err := rs.getAIBill(ctx, oid, now)
+func (ss *StatService) getBills(ctx context.Context, oid string, now time.Time) (*models.Bills, error) {
+	aiBill, err := ss.getAIBill(ctx, oid, now)
 	if err != nil {
 		return nil, err
 	}
-	connectBill, err := rs.getConnectBill(ctx, oid, now)
+	connectBill, err := ss.getConnectBill(ctx, oid, now)
 	if err != nil {
 		return nil, err
 	}
@@ -25,14 +25,14 @@ func (rs *RefreshService) getBills(ctx context.Context, oid string, now time.Tim
 	}, nil
 }
 
-func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now time.Time) (*models.ConnectBills, error) {
+func (ss *StatService) getConnectBill(ctx context.Context, oid string, now time.Time) (*models.ConnectBills, error) {
 	var (
 		total     = &models.Events{}
 		yesterday = &models.Events{}
 		week      = &models.Events{}
 		month     = &models.Events{}
 	)
-	bills, err := rs.getConnectBills(ctx, oid)
+	bills, err := ss.getConnectBills(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +75,8 @@ func (rs *RefreshService) getConnectBill(ctx context.Context, oid string, now ti
 	return stat, nil
 }
 
-func (rs *RefreshService) getAIBill(ctx context.Context, oid string, now time.Time) (*models.AIBills, error) {
-	bills, err := rs.getAIBills(ctx, oid)
+func (ss *StatService) getAIBill(ctx context.Context, oid string, now time.Time) (*models.AIBills, error) {
+	bills, err := ss.getAIBills(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (rs *RefreshService) getAIBill(ctx context.Context, oid string, now time.Ti
 	return stat, nil
 }
 
-func (rs *RefreshService) getAIBills(ctx context.Context, oid string) ([]*cloud.AIBill, error) {
+func (ss *StatService) getAIBills(ctx context.Context, oid string) ([]*cloud.AIBill, error) {
 	query := bson.M{
 		"user_id": oid,
 		// "collected_at": bson.M{
@@ -112,7 +112,7 @@ func (rs *RefreshService) getAIBills(ctx context.Context, oid string) ([]*cloud.
 		// 	"$lte": end,
 		// },
 	}
-	cursor, err := rs.aiBillColl.Find(ctx, query)
+	cursor, err := ss.aiBillColl.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (rs *RefreshService) getAIBills(ctx context.Context, oid string) ([]*cloud.
 	return bills, nil
 }
 
-func (rs *RefreshService) getConnectBills(ctx context.Context, oid string) ([]*cloud.Bill, error) {
+func (ss *StatService) getConnectBills(ctx context.Context, oid string) ([]*cloud.Bill, error) {
 	query := bson.M{
 		"user_id": oid,
 		// "collected_at": bson.M{
@@ -139,7 +139,7 @@ func (rs *RefreshService) getConnectBills(ctx context.Context, oid string) ([]*c
 		// 	"$lte": end,
 		// },
 	}
-	cursor, err := rs.billColl.Find(ctx, query)
+	cursor, err := ss.billColl.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
