@@ -39,11 +39,5 @@ func ToBillTimeForConnect(t time.Time) time.Time {
 }
 
 func ToBillTimeForAI(t time.Time) time.Time {
-	var real time.Time
-	if t.Hour() == 0 {
-		real = t.Add(-24 * time.Hour)
-	} else {
-		real = t
-	}
-	return time.Date(real.Year(), real.Month(), real.Day(), 0, 0, 0, 0, time.UTC)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }

@@ -51,7 +51,7 @@ func NewActionService(cli *mongo.Client) *ActionService {
 func (as *ActionService) Start() error {
 	ctx := context.Background()
 	go func() {
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		defer log.Warn(ctx).Err(nil).Msg("update user action time routine exit")
 		for {
@@ -65,7 +65,7 @@ func (as *ActionService) Start() error {
 					log.Error(ctx).Err(err).Msgf("failed to update user action time at %+v", time.Now())
 				}
 				now := time.Now()
-				if now.Weekday() == time.Monday && now.Hour() == 0 && now.Minute() == 0 {
+				if now.Weekday() == time.Monday && now.Hour() == 2 {
 					as.weeklyViewPriceUserTracking(ctx, now)
 				}
 			}
