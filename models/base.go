@@ -228,7 +228,11 @@ func NewAIBill() *AIBills {
 
 func NewConnectBill() *ConnectBills {
 	return &ConnectBills{
-		Items: make(map[time.Time]uint64),
+		Items:     make(map[time.Time]uint64),
+		Total:     &Events{},
+		Yesterday: &Events{},
+		LastWeek:  &Events{},
+		LastMonth: &Events{},
 	}
 }
 

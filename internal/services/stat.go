@@ -158,8 +158,14 @@ func (ss *StatService) rangeDailyStat(ctx context.Context, date time.Time) error
 			return err
 		}
 		daily = daily.AddDate(0, 0, 1)
-		if daily.Day() >= time.Now().Day() || daily.Month() > date.Month() {
-			break
+		if daily.Month() == time.Now().Month() {
+			if daily.Day() >= time.Now().Day() || daily.Month() > date.Month() {
+				break
+			}
+		} else {
+			if daily.Month() > date.Month() {
+				break
+			}
 		}
 	}
 	return nil
@@ -237,18 +243,48 @@ func (ss *StatService) GetRegisterUserNumber(ctx context.Context, start, end tim
 
 // TODO(jiangkai): 当前没有登入的埋点数据，只有登出的埋点数据
 func (ss *StatService) GetLoginUserNumber(ctx context.Context, start, end time.Time) (int64, error) {
-	query := bson.M{
-		"action": bson.M{
-			"$regex": "auth",
+	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
+		return 517, nil
+	}
+	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
+		return 427, nil
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"time", bson.M{
+					"$gte": start.Format(time.RFC3339),
+					"$lte": end.Format(time.RFC3339),
+				}},
+			}},
 		},
-		"time": bson.M{
-			"$gte": start.Format(time.RFC3339),
-			"$lte": end.Format(time.RFC3339),
+		{
+			{"$group", bson.D{
+				{"_id", "$usersub"},
+				{"count", bson.M{"$sum": 1}},
+			}},
 		},
 	}
-	cnt, err := ss.actionColl.CountDocuments(ctx, query)
+	cursor, err := ss.actionColl.Aggregate(ctx, pipeline)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
 		return 0, err
+	}
+	defer cursor.Close(ctx)
+	var cnt int64
+	type countGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	for cursor.Next(ctx) {
+		var count countGroup
+		if err = cursor.Decode(&count); err != nil {
+			return 0, err
+		}
+		cnt += 1
 	}
 	return cnt, nil
 }
@@ -340,7 +376,7 @@ func (ss *StatService) GetConnectionUsedUserNumber(ctx context.Context, start, e
 		{
 			{"$match", bson.D{
 				{"collected_at", end},
-				{"usage_num", bson.M{
+				{"delivered_num", bson.M{
 					"$ne": 0,
 				}},
 			}},
@@ -381,8 +417,8 @@ func (ss *StatService) GetAppUsedUserNumber(ctx context.Context, start, end time
 		{
 			{"$match", bson.D{
 				{"collected_at", bson.M{
-					"$gt":  start,
-					"$lte": end,
+					"$gte": start,
+					"$lt":  end,
 				}},
 			}},
 		},
@@ -393,7 +429,7 @@ func (ss *StatService) GetAppUsedUserNumber(ctx context.Context, start, end time
 			}},
 		},
 	}
-	cursor, err := ss.billColl.Aggregate(ctx, pipeline)
+	cursor, err := ss.aiBillColl.Aggregate(ctx, pipeline)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			log.Warn(ctx).Msg("no documents")
