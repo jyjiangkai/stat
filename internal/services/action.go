@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	DatabaseOfUserAnalytics        = "vanus_user_analytics"
-	ActionType                     = "action_type"
-	ActionTypeOfChat               = "chat"
-	ActionTypeOfRedirectChangePlan = "redirect_change_plan"
+	DatabaseOfUserAnalytics            = "vanus_user_analytics"
+	ActionType                         = "action_type"
+	ActionTypeOfChat                   = "chat"
+	ActionTypeOfRedirectChangePlan     = "redirect_change_plan"
+	ActionTypeOfSwitchSidebarKnowledge = "switch_sidebar_knowledge"
 )
 
 type ActionService struct {
@@ -104,6 +105,7 @@ func (as *ActionService) weeklyViewPriceUserTracking(ctx context.Context, now ti
 		_ = cursor.Close(ctx)
 	}()
 
+	cnt := 0
 	for cursor.Next(ctx) {
 		user := &models.User{}
 		if err = cursor.Decode(user); err != nil {
@@ -127,8 +129,9 @@ func (as *ActionService) weeklyViewPriceUserTracking(ctx context.Context, now ti
 				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
 			}
 		}
+		cnt += 1
 	}
-	log.Info(ctx).Msgf("finish stat weekly view price user at: %+v\n", time.Now())
+	log.Info(ctx).Int("cnt", cnt).Msgf("finish stat weekly view price user at: %+v\n", time.Now())
 	return nil
 }
 

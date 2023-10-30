@@ -38,11 +38,11 @@ func main() {
 	}
 	mailchimp.Init(ctx, mailchimpCfg)
 
-	svc := services.NewUserService(cli)
+	svc := services.NewTrackService(cli)
 	err = svc.Start()
 	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to start user service")
+		log.Error(ctx).Err(err).Msg("failed to start track service")
 		return
 	}
-	log.Info(ctx).Msg("success to start user service")
+	log.Info(ctx).Msg("success to start track service")
 }
