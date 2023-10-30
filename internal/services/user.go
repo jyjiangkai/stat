@@ -588,9 +588,10 @@ func (us *UserService) listCohortUsers(ctx context.Context, pg api.Page, opts *a
 func (us *UserService) listDailyUserNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	query := bson.M{
 		"date": bson.M{
-			"$gte": us.getRangeStartAt(ctx, pg.Range),
+			"$gte": GetRangeStartAt(ctx, pg.Range),
 			// "$lte": end,
 		},
+		"tag": pg.Tag,
 	}
 	opt := options.FindOptions{
 		Sort: bson.M{"date": 1},
@@ -885,7 +886,7 @@ func (us *UserService) getLastWeekUsageUserList(ctx context.Context) ([]string, 
 	return userList, userMap, nil
 }
 
-func (us *UserService) getRangeStartAt(ctx context.Context, rg string) time.Time {
+func GetRangeStartAt(ctx context.Context, rg string) time.Time {
 	now := time.Now()
 	switch rg {
 	case "Month":

@@ -100,6 +100,11 @@ func main() {
 		panic("failed to start stat service: " + err.Error())
 	}
 
+	trackService := services.NewTrackService(cli)
+	if err = trackService.Start(); err != nil {
+		panic("failed to start track service: " + err.Error())
+	}
+
 	alarmService := services.NewAlarmService(cli)
 	if err = alarmService.Start(); err != nil {
 		panic("failed to start alarm service: " + err.Error())

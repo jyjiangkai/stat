@@ -23,29 +23,32 @@ import (
 const (
 	DatabaseOfUserAnalytics            = "vanus_user_analytics"
 	ActionType                         = "action_type"
+	DailyActionNumber                  = "daily_action_number"
 	ActionTypeOfChat                   = "chat"
 	ActionTypeOfRedirectChangePlan     = "redirect_change_plan"
 	ActionTypeOfSwitchSidebarKnowledge = "switch_sidebar_knowledge"
 )
 
 type ActionService struct {
-	cli        *mongo.Client
-	appColl    *mongo.Collection
-	statColl   *mongo.Collection
-	actionColl *mongo.Collection
-	trackColl  *mongo.Collection
-	appCache   sync.Map
-	closeC     chan struct{}
+	cli           *mongo.Client
+	appColl       *mongo.Collection
+	statColl      *mongo.Collection
+	dailyStatColl *mongo.Collection
+	actionColl    *mongo.Collection
+	trackColl     *mongo.Collection
+	appCache      sync.Map
+	closeC        chan struct{}
 }
 
 func NewActionService(cli *mongo.Client) *ActionService {
 	return &ActionService{
-		cli:        cli,
-		appColl:    cli.Database(db.GetDatabaseName()).Collection("ai_app"),
-		statColl:   cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
-		actionColl: cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
-		trackColl:  cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
-		closeC:     make(chan struct{}),
+		cli:           cli,
+		appColl:       cli.Database(db.GetDatabaseName()).Collection("ai_app"),
+		statColl:      cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
+		dailyStatColl: cli.Database(DatabaseOfUserStatistics).Collection("daily_stats"),
+		actionColl:    cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
+		trackColl:     cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
+		closeC:        make(chan struct{}),
 	}
 }
 
@@ -194,6 +197,8 @@ func (as *ActionService) List(ctx context.Context, pg api.Page, filter api.Filte
 	switch opts.TypeSelector {
 	case ActionType:
 		return as.listSpecifiedActionTypeUsers(ctx, pg, filter, opts)
+	case DailyActionNumber:
+		return as.listDailyActionNumber(ctx, pg, opts)
 	default:
 		return as.list(ctx, pg, filter, opts)
 	}
@@ -376,6 +381,44 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 	}
 	return &api.ListResult{
 		List: list[skip : skip+limit],
+		P:    pg,
+	}, nil
+}
+
+func (as *ActionService) listDailyActionNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	query := bson.M{
+		"date": bson.M{
+			"$gte": GetRangeStartAt(ctx, pg.Range),
+			// "$lte": end,
+		},
+		"tag": pg.Tag,
+	}
+	opt := options.FindOptions{
+		Sort: bson.M{"date": 1},
+	}
+	cursor, err := as.dailyStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				List: []interface{}{},
+				P:    pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		daily := &models.Daily{}
+		if err = cursor.Decode(daily); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		list = append(list, daily)
+	}
+	return &api.ListResult{
+		List: list,
 		P:    pg,
 	}, nil
 }

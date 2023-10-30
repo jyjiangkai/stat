@@ -12,6 +12,7 @@ type Page struct {
 	SortBy     string `json:"sort_by" form:"sort_by,default=created_at"`
 	Direction  string `json:"direction" form:"direction,default=desc"`
 	Range      string `json:"range" form:"range"`
+	Tag        string `json:"tag" form:"tag"`
 	// Token      string        `json:"token,omitempty"` // reserve
 }
 

@@ -205,13 +205,27 @@ type RegionInfo struct {
 }
 
 type Daily struct {
-	Date                        time.Time `json:"date" bson:"date"`
-	RegisterUserNumber          int64     `json:"register_user_number" bson:"register_user_number"`
-	LoginUserNumber             int64     `json:"login_user_number" bson:"login_user_number"`
-	ConnectionCreatedUserNumber int64     `json:"connection_created_user_number" bson:"connection_created_user_number"`
-	AppCreatedUserNumber        int64     `json:"app_created_user_number" bson:"app_created_user_number"`
-	ConnectionUsedUserNumber    int64     `json:"connection_used_user_number" bson:"connection_used_user_number"`
-	AppUsedUserNumber           int64     `json:"app_used_user_number" bson:"app_used_user_number"`
+	Date                                             time.Time `json:"date" bson:"date"`
+	Tag                                              string    `json:"tag" bson:"tag"`
+	RegisterUserNumber                               int64     `json:"register_user_number" bson:"register_user_number"`
+	LoginUserNumber                                  int64     `json:"login_user_number" bson:"login_user_number"`
+	ConnectionCreatedUserNumber                      int64     `json:"connection_created_user_number" bson:"connection_created_user_number"`
+	AppCreatedUserNumber                             int64     `json:"app_created_user_number" bson:"app_created_user_number"`
+	ConnectionUsedUserNumber                         int64     `json:"connection_used_user_number" bson:"connection_used_user_number"`
+	AppUsedUserNumber                                int64     `json:"app_used_user_number" bson:"app_used_user_number"`
+	TryVanusActionNumber                             int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
+	SignInWithGithubActionNumber                     int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
+	SignInWithGoogleActionNumber                     int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
+	SignInWithMicrosoftActionNumber                  int64     `json:"sign_in_with_microsoft_actiont_number" bson:"sign_in_with_microsoft_action_number"`
+	ContactUsActionNumber                            int64     `json:"contact_us_action_number" bson:"contact_us_action_number"`
+	ShopifyToGoogleSheetsWithNewOrderActionNumber    int64     `json:"shopify_to_googlesheets_with_new_order_action_number" bson:"shopify_to_googlesheets_with_new_order_action_number"`
+	ShopifyToGoogleSheetsWithCancelOrderActionNumber int64     `json:"shopify_to_googlesheets_with_cancel_order_action_number" bson:"shopify_to_googlesheets_with_cancel_order_action_number"`
+	ShopifyToMailChimpActionNumber                   int64     `json:"shopify_to_mailchimp_action_number" bson:"shopify_to_mailchimp_action_number"`
+	ShopifyToMySQLActionNumber                       int64     `json:"shopify_to_mysql_action_number" bson:"shopify_to_mysql_action_number"`
+	ShopifyToOutlookWithWelcomeCustomerActionNumber  int64     `json:"shopify_to_outlook_with_welcome_customer_action_number" bson:"shopify_to_outlook_with_welcome_customer_action_number"`
+	ShopifyToOutlookWithNewOrderActionNumber         int64     `json:"shopify_to_outlook_with_new_order_action_number" bson:"shopify_to_outlook_with_new_order_action_number"`
+	ShopifyToSlackWithNewOrderActionNumber           int64     `json:"shopify_to_slack_with_new_order_action_number" bson:"shopify_to_slack_with_new_order_action_number"`
+	ShopifyToSlackWithCancelOrderActionNumber        int64     `json:"shopify_to_slack_with_cancel_order_action_number" bson:"shopify_to_slack_with_cancel_order_action_number"`
 }
 
 type ActiveUserNumber struct {

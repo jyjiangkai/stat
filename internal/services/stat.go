@@ -153,7 +153,15 @@ func (ss *StatService) rangeDailyStat(ctx context.Context, date time.Time) error
 	defer ss.wg.Done()
 	daily := date
 	for {
-		err := ss.dailyStat(ctx, daily)
+		err := ss.dailyUserNumStat(ctx, daily)
+		if err != nil {
+			return err
+		}
+		err = ss.dailyUserActionStat(ctx, daily)
+		if err != nil {
+			return err
+		}
+		err = ss.dailyUserActionOfShopifyStat(ctx, daily)
 		if err != nil {
 			return err
 		}
@@ -171,7 +179,7 @@ func (ss *StatService) rangeDailyStat(ctx context.Context, date time.Time) error
 	return nil
 }
 
-func (ss *StatService) dailyStat(ctx context.Context, date time.Time) error {
+func (ss *StatService) dailyUserNumStat(ctx context.Context, date time.Time) error {
 	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	endAt := startAt.AddDate(0, 0, 1)
 	registerUserNumber, err := ss.GetRegisterUserNumber(ctx, startAt, endAt)
@@ -200,6 +208,7 @@ func (ss *StatService) dailyStat(ctx context.Context, date time.Time) error {
 	}
 	daily := &models.Daily{
 		Date:                        startAt,
+		Tag:                         "user_number",
 		RegisterUserNumber:          registerUserNumber,
 		LoginUserNumber:             loginUserNumber,
 		ConnectionCreatedUserNumber: cnCreatedUserNumber,
@@ -214,16 +223,134 @@ func (ss *StatService) dailyStat(ctx context.Context, date time.Time) error {
 	// }
 	query := bson.M{
 		"date": startAt,
+		"tag":  "user_number",
 	}
 	opts := &options.ReplaceOptions{
 		Upsert: utils.PtrBool(true),
 	}
 	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
 	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to insert daily stat")
+		log.Error(ctx).Err(err).Msg("failed to insert daily user number stat")
 		return err
 	}
-	log.Info(ctx).Any("date", startAt).Msg("finished daily stat")
+	// log.Info(ctx).Any("date", startAt).Msg("finished daily user number stat")
+	return nil
+}
+
+func (ss *StatService) dailyUserActionStat(ctx context.Context, date time.Time) error {
+	if date.Before(time.Date(2023, 10, 26, 0, 0, 0, 0, time.UTC)) {
+		return nil
+	}
+	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endAt := startAt.AddDate(0, 0, 1)
+	tryVanusActionNumber, err := ss.GetTryVanusActionNumber(ctx, startAt, endAt)
+	if err != nil {
+		return err
+	}
+	signInWithGithubActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, "github-auth")
+	if err != nil {
+		return err
+	}
+	signInWithGoogleActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, "google-auth")
+	if err != nil {
+		return err
+	}
+	signInWithMicrosoftActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, "microsoft-auth")
+	if err != nil {
+		return err
+	}
+	ContactUsActionNumber, err := ss.GetContactUsActionNumber(ctx, startAt, endAt)
+	if err != nil {
+		return err
+	}
+	daily := &models.Daily{
+		Date:                            startAt,
+		Tag:                             "user_action",
+		TryVanusActionNumber:            tryVanusActionNumber,
+		SignInWithGithubActionNumber:    signInWithGithubActionNumber,
+		SignInWithGoogleActionNumber:    signInWithGoogleActionNumber,
+		SignInWithMicrosoftActionNumber: signInWithMicrosoftActionNumber,
+		ContactUsActionNumber:           ContactUsActionNumber,
+	}
+	query := bson.M{
+		"date": startAt,
+		"tag":  "user_action",
+	}
+	opts := &options.ReplaceOptions{
+		Upsert: utils.PtrBool(true),
+	}
+	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to insert daily user action stat")
+		return err
+	}
+	// log.Info(ctx).Any("date", startAt).Msg("finished daily user action stat")
+	return nil
+}
+
+func (ss *StatService) dailyUserActionOfShopifyStat(ctx context.Context, date time.Time) error {
+	if date.Before(time.Date(2023, 10, 26, 0, 0, 0, 0, time.UTC)) {
+		return nil
+	}
+	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endAt := startAt.AddDate(0, 0, 1)
+	num1, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-google-sheets-20231023_1")
+	if err != nil {
+		return err
+	}
+	num2, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-google-sheets-20231023_2")
+	if err != nil {
+		return err
+	}
+	num3, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-mailchimp-20231020_2")
+	if err != nil {
+		return err
+	}
+	num4, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-mysql-20231023_3")
+	if err != nil {
+		return err
+	}
+	num5, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-outlook-20231023_4")
+	if err != nil {
+		return err
+	}
+	num6, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-outlook-20231023_5")
+	if err != nil {
+		return err
+	}
+	num7, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-slack-20231023_6")
+	if err != nil {
+		return err
+	}
+	num8, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-slack-20231023_7")
+	if err != nil {
+		return err
+	}
+	daily := &models.Daily{
+		Date: startAt,
+		Tag:  "shopify",
+		ShopifyToGoogleSheetsWithNewOrderActionNumber:    num1,
+		ShopifyToGoogleSheetsWithCancelOrderActionNumber: num2,
+		ShopifyToMailChimpActionNumber:                   num3,
+		ShopifyToMySQLActionNumber:                       num4,
+		ShopifyToOutlookWithWelcomeCustomerActionNumber:  num5,
+		ShopifyToOutlookWithNewOrderActionNumber:         num6,
+		ShopifyToSlackWithNewOrderActionNumber:           num7,
+		ShopifyToSlackWithCancelOrderActionNumber:        num8,
+	}
+	query := bson.M{
+		"date": startAt,
+		"tag":  "shopify",
+	}
+	opts := &options.ReplaceOptions{
+		Upsert: utils.PtrBool(true),
+	}
+	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to insert daily user action of shopify stat")
+		return err
+	}
+	// log.Info(ctx).Any("date", startAt).Msg("finished daily user action of shopify stat")
 	return nil
 }
 
@@ -449,6 +576,100 @@ func (ss *StatService) GetAppUsedUserNumber(ctx context.Context, start, end time
 			return 0, err
 		}
 		cnt += 1
+	}
+	return cnt, nil
+}
+
+func (ss *StatService) GetTryVanusActionNumber(ctx context.Context, start, end time.Time) (int64, error) {
+	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
+		return 517, nil
+	}
+	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
+		return 427, nil
+	}
+	query := bson.M{
+		"time": bson.M{
+			"$gte": start.Format(time.RFC3339),
+			"$lte": end.Format(time.RFC3339),
+		},
+		"action": "redirect_login",
+		"source": "www.vanus.ai",
+		"payload.extra": bson.M{
+			"$exists": false,
+		},
+	}
+	cnt, err := ss.actionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return cnt, nil
+}
+
+func (ss *StatService) GetSignInActionNumber(ctx context.Context, start, end time.Time, auth string) (int64, error) {
+	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
+		return 517, nil
+	}
+	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
+		return 427, nil
+	}
+	query := bson.M{
+		"time": bson.M{
+			"$gte": start.Format(time.RFC3339),
+			"$lte": end.Format(time.RFC3339),
+		},
+		"action":        "redirect_login",
+		"source":        "www.vanus.ai",
+		"payload.extra": auth,
+	}
+	cnt, err := ss.actionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return cnt, nil
+}
+
+func (ss *StatService) GetContactUsActionNumber(ctx context.Context, start, end time.Time) (int64, error) {
+	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
+		return 517, nil
+	}
+	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
+		return 427, nil
+	}
+	query := bson.M{
+		"time": bson.M{
+			"$gte": start.Format(time.RFC3339),
+			"$lte": end.Format(time.RFC3339),
+		},
+		"action": "contact",
+		"source": "www.vanus.ai",
+	}
+	cnt, err := ss.actionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return cnt, nil
+}
+
+func (ss *StatService) GetShopifyTryItActionNumber(ctx context.Context, start, end time.Time, template string) (int64, error) {
+	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
+		return 517, nil
+	}
+	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
+		return 427, nil
+	}
+	query := bson.M{
+		"time": bson.M{
+			"$gte": start.Format(time.RFC3339),
+			"$lte": end.Format(time.RFC3339),
+		},
+		"action":       "create_connection_from_landing",
+		"source":       "www.vanus.ai",
+		"payload.from": "https://www.vanus.ai/connectors/shopify",
+		"template":     template,
+	}
+	cnt, err := ss.actionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
 	}
 	return cnt, nil
 }

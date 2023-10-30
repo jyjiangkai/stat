@@ -37,11 +37,12 @@ func main() {
 	}()
 
 	// billColl := cli.Database(db.GetDatabaseName()).Collection("ai_bills")
-	actionColl := cli.Database("vanus_user_analytics").Collection("user_actions")
+	// actionColl := cli.Database("vanus_user_analytics").Collection("user_actions")
+	dailyStatsColl := cli.Database("vanus-user-statistics").Collection("daily_stats")
 
 	// FindOne(ctx, billColl)
 	// CountDocuments(ctx, actionColl)
-	DeleteMany(ctx, actionColl)
+	DeleteMany(ctx, dailyStatsColl)
 	// Aggregate(ctx, billColl)
 
 	return
@@ -91,11 +92,7 @@ func CountDocuments(ctx context.Context, coll *mongo.Collection) error {
 }
 
 func DeleteMany(ctx context.Context, coll *mongo.Collection) error {
-	query := bson.M{
-		"website": bson.M{
-			"$regex": "vanustest",
-		},
-	}
+	query := bson.M{}
 	_, err := coll.DeleteMany(ctx, query)
 	if err != nil {
 		return err
