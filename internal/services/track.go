@@ -50,11 +50,164 @@ func (ts *TrackService) Start() error {
 			case <-ticker.C:
 				now := time.Now()
 				if now.Hour() == 0 {
+					ts.weeklyNoKnowledgeBaseUserTracking(ctx, now)
+					ts.weeklyHighKnowledgeBaseUserTracking(ctx, now)
 					ts.weeklyViewPriceUserTracking(ctx, now)
 				}
 			}
 		}
 	}()
+	return nil
+}
+
+func (ts *TrackService) weeklyNoKnowledgeBaseUserTracking(ctx context.Context, now time.Time) error {
+	log.Info(ctx).Msgf("start stat weekly no knowledge user tracking at: %+v\n", now)
+	week := TimeToWeek(now)
+	query := bson.M{
+		"tag":  UserTypeOfNoKnownledgeBase,
+		"time": week.Start,
+	}
+	cnt, err := ts.userTrackColl.CountDocuments(ctx, query)
+	if err != nil {
+		return err
+	}
+	if cnt == 0 {
+		return nil
+	}
+	cursor, err := ts.userTrackColl.Find(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	var (
+		userNum    int64
+		loginNum   int64
+		vkbNum     int64
+		kbNum      int64
+		vpriceNum  int64
+		premiumNum int64
+	)
+	for cursor.Next(ctx) {
+		track := &models.Track{}
+		if err = cursor.Decode(track); err != nil {
+			return db.HandleDBError(err)
+		}
+		userNum += 1
+		if ts.checkLogin(ctx, track.User, week.Start) {
+			loginNum += 1
+		}
+		if ts.checkViewKnowledge(ctx, track.User, week.Start) {
+			vkbNum += 1
+		}
+		if ts.checkKnowledgeBase(ctx, track.User) {
+			kbNum += 1
+		}
+		if ts.checkViewPrice(ctx, track.User, week.Start) {
+			vpriceNum += 1
+		}
+		if ts.checkPay(ctx, track.User, week.Start) {
+			premiumNum += 1
+		}
+	}
+	userTrack := &models.WeeklyUserTrack{
+		Week:             week,
+		Tag:              UserTypeOfNoKnownledgeBase,
+		UserNum:          userNum,
+		LoginNum:         loginNum,
+		ViewKnowledgeNum: vkbNum,
+		KnowledgeBaseNum: kbNum,
+		ViewPriceNum:     vpriceNum,
+		PremiumNum:       premiumNum,
+	}
+	queryWeeklyUserTrack := bson.M{
+		"week.alias": week.Alias,
+		"tag":        UserTypeOfNoKnownledgeBase,
+	}
+	opts := &options.ReplaceOptions{
+		Upsert: utils.PtrBool(true),
+	}
+	_, err = ts.weeklyTrackColl.ReplaceOne(ctx, queryWeeklyUserTrack, userTrack, opts)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to insert daily stat")
+		return err
+	}
+	log.Info(ctx).Msgf("finish stat weekly no knowledge user at: %+v\n", time.Now())
+	return nil
+}
+
+func (ts *TrackService) weeklyHighKnowledgeBaseUserTracking(ctx context.Context, now time.Time) error {
+	log.Info(ctx).Msgf("start stat weekly high knowledge user tracking at: %+v\n", now)
+	week := TimeToWeek(now)
+	query := bson.M{
+		"tag":  UserTypeOfHighKnownledgeBase,
+		"time": week.Start,
+	}
+	cnt, err := ts.userTrackColl.CountDocuments(ctx, query)
+	if err != nil {
+		return err
+	}
+	if cnt == 0 {
+		return nil
+	}
+	cursor, err := ts.userTrackColl.Find(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	var (
+		userNum    int64
+		loginNum   int64
+		kbNum      int64
+		vpriceNum  int64
+		premiumNum int64
+	)
+	for cursor.Next(ctx) {
+		track := &models.Track{}
+		if err = cursor.Decode(track); err != nil {
+			return db.HandleDBError(err)
+		}
+		userNum += 1
+		if ts.checkLogin(ctx, track.User, week.Start) {
+			loginNum += 1
+		}
+		if ts.checkKnowledgeBase(ctx, track.User) {
+			kbNum += 1
+		}
+		if ts.checkViewPrice(ctx, track.User, week.Start) {
+			vpriceNum += 1
+		}
+		if ts.checkPay(ctx, track.User, week.Start) {
+			premiumNum += 1
+		}
+	}
+	userTrack := &models.WeeklyUserTrack{
+		Week:             week,
+		Tag:              UserTypeOfHighKnownledgeBase,
+		UserNum:          userNum,
+		LoginNum:         loginNum,
+		KnowledgeBaseNum: kbNum,
+		ViewPriceNum:     vpriceNum,
+		PremiumNum:       premiumNum,
+	}
+	queryWeeklyUserTrack := bson.M{
+		"week.alias": week.Alias,
+		"tag":        UserTypeOfHighKnownledgeBase,
+	}
+	opts := &options.ReplaceOptions{
+		Upsert: utils.PtrBool(true),
+	}
+	_, err = ts.weeklyTrackColl.ReplaceOne(ctx, queryWeeklyUserTrack, userTrack, opts)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to insert daily stat")
+		return err
+	}
+	log.Info(ctx).Msgf("finish stat weekly high knowledge user at: %+v\n", time.Now())
 	return nil
 }
 
@@ -83,7 +236,7 @@ func (ts *TrackService) weeklyViewPriceUserTracking(ctx context.Context, now tim
 	var (
 		userNum    int64
 		loginNum   int64
-		hkbNum     int64
+		kbNum      int64
 		vpriceNum  int64
 		premiumNum int64
 	)
@@ -97,7 +250,7 @@ func (ts *TrackService) weeklyViewPriceUserTracking(ctx context.Context, now tim
 			loginNum += 1
 		}
 		if ts.checkKnowledgeBase(ctx, track.User) {
-			hkbNum += 1
+			kbNum += 1
 		}
 		if ts.checkViewPrice(ctx, track.User, week.Start) {
 			vpriceNum += 1
@@ -107,13 +260,13 @@ func (ts *TrackService) weeklyViewPriceUserTracking(ctx context.Context, now tim
 		}
 	}
 	userTrack := &models.WeeklyUserTrack{
-		Week:                 week,
-		Tag:                  ActionTypeOfRedirectChangePlan,
-		UserNum:              userNum,
-		LoginNum:             loginNum,
-		HighKnowledgeBaseNum: hkbNum,
-		ViewPriceNum:         vpriceNum,
-		PremiumNum:           premiumNum,
+		Week:             week,
+		Tag:              ActionTypeOfRedirectChangePlan,
+		UserNum:          userNum,
+		LoginNum:         loginNum,
+		KnowledgeBaseNum: kbNum,
+		ViewPriceNum:     vpriceNum,
+		PremiumNum:       premiumNum,
 	}
 	queryWeeklyUserTrack := bson.M{
 		"week.alias": week.Alias,
@@ -181,6 +334,25 @@ func (ts *TrackService) checkPay(ctx context.Context, oid string, start time.Tim
 			return false
 		}
 		log.Error(ctx).Err(result.Err()).Str("user", oid).Msg("failed to check user pay")
+		return false
+	}
+	return true
+}
+
+func (ts *TrackService) checkViewKnowledge(ctx context.Context, oid string, start time.Time) bool {
+	query := bson.M{
+		"usersub": oid,
+		"action":  ActionTypeOfSwitchSidebarKnowledge,
+		"time": bson.M{
+			"$gte": start.Format(time.RFC3339),
+		},
+	}
+	result := ts.actionColl.FindOne(ctx, query)
+	if result.Err() != nil {
+		if result.Err() == mongo.ErrNoDocuments {
+			return false
+		}
+		log.Error(ctx).Err(result.Err()).Str("user", oid).Msg("failed to check user view knowledge")
 		return false
 	}
 	return true

@@ -36,10 +36,13 @@ func main() {
 		_ = cli.Disconnect(ctx)
 	}()
 
-	billColl := cli.Database(db.GetDatabaseName()).Collection("ai_bills")
+	// billColl := cli.Database(db.GetDatabaseName()).Collection("ai_bills")
+	actionColl := cli.Database("vanus_user_analytics").Collection("user_actions")
 
 	// FindOne(ctx, billColl)
-	Aggregate(ctx, billColl)
+	// CountDocuments(ctx, actionColl)
+	DeleteMany(ctx, actionColl)
+	// Aggregate(ctx, billColl)
 
 	return
 }
@@ -70,6 +73,34 @@ func FindOne(ctx context.Context, coll *mongo.Collection) error {
 		return err
 	}
 	log.Info(ctx).Msgf("success get bill: %+v\n", bill)
+	return nil
+}
+
+func CountDocuments(ctx context.Context, coll *mongo.Collection) error {
+	query := bson.M{
+		"website": bson.M{
+			"$regex": "https://ai.vanustest.com",
+		},
+	}
+	cnt, err := coll.CountDocuments(ctx, query)
+	if err != nil {
+		return err
+	}
+	log.Info(ctx).Int64("cnt", cnt).Msg("success to count documents")
+	return nil
+}
+
+func DeleteMany(ctx context.Context, coll *mongo.Collection) error {
+	query := bson.M{
+		"website": bson.M{
+			"$regex": "vanustest",
+		},
+	}
+	_, err := coll.DeleteMany(ctx, query)
+	if err != nil {
+		return err
+	}
+	log.Info(ctx).Msg("success to delete many")
 	return nil
 }
 

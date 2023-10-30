@@ -108,6 +108,7 @@ func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, n
 		log.Error(ctx).Err(err).Msgf("stat weekly no knownledge base user failed at %+v\n", now)
 		return err
 	}
+	cnt := 0
 	for idx := range result.List {
 		user := result.List[idx].(*models.User)
 		track := &models.Track{
@@ -128,8 +129,9 @@ func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, n
 				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
 			}
 		}
+		cnt += 1
 	}
-	log.Info(ctx).Msgf("finish stat weekly no knownledge base user at: %+v\n", time.Now())
+	log.Info(ctx).Int("cnt", cnt).Msgf("finish stat weekly no knownledge base user at: %+v\n", time.Now())
 	return nil
 }
 
@@ -146,6 +148,7 @@ func (us *UserService) weeklyHighKnownledgeBaseUserTracking(ctx context.Context,
 		log.Error(ctx).Err(err).Msgf("stat weekly high knownledge base user failed at %+v\n", now)
 		return err
 	}
+	cnt := 0
 	for idx := range result.List {
 		user := result.List[idx].(*models.User)
 		track := &models.Track{
@@ -166,8 +169,9 @@ func (us *UserService) weeklyHighKnownledgeBaseUserTracking(ctx context.Context,
 				log.Error(ctx).Str("email", user.Email).Msg("failed to add member to mailchimp")
 			}
 		}
+		cnt += 1
 	}
-	log.Info(ctx).Msgf("finish stat weekly high knownledge base user at: %+v\n", time.Now())
+	log.Info(ctx).Int("cnt", cnt).Msgf("finish stat weekly high knownledge base user at: %+v\n", time.Now())
 	return nil
 }
 
