@@ -13,39 +13,4 @@ type Page struct {
 	Direction  string `json:"direction" form:"direction,default=desc"`
 	Range      string `json:"range" form:"range"`
 	Tag        string `json:"tag" form:"tag"`
-	// Token      string        `json:"token,omitempty"` // reserve
 }
-
-// type PageLabel struct {
-// 	Page  Page     `json:",inline"`
-// 	Label []string `json:"label" form:"label"`
-// 	Inner struct {
-// 		Label map[string]string
-// 	}
-// }
-
-// func (p *PageLabel) InitValue() error {
-// 	if len(p.Label) > 0 {
-// 		label := make(map[string]string, len(p.Label))
-// 		for _, l := range p.Label {
-// 			str := strings.SplitN(l, ",", 2)
-// 			if len(str) != 2 {
-// 				return fmt.Errorf("param label value invalid")
-// 			}
-// 			label[str[0]] = str[1]
-// 		}
-// 		p.Inner.Label = label
-// 	}
-// 	return nil
-// }
-
-// func (p *PageLabel) GetLabel() map[string]string {
-// 	return p.Inner.Label
-// }
-
-// func (p Page) GetRegion() cloud.Region {
-// 	if p.Reg != "" {
-// 		return p.Reg
-// 	}
-// 	return cloud.DefaultRegion
-// }
