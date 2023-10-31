@@ -20,6 +20,9 @@ import (
 
 const (
 	UserTypeOfRegister           = "register"
+	UserTypeOfLogin              = "login"
+	UserTypeOfCreated            = "created"
+	UserTypeOfUsed               = "used"
 	UserTypeOfPremium            = "premium"
 	UserTypeOfNoKnownledgeBase   = "no_knowledge_base"
 	UserTypeOfHighKnownledgeBase = "high_knowledge_base"
@@ -47,6 +50,7 @@ type UserService struct {
 	dailyStatColl       *mongo.Collection
 	cohortColl          *mongo.Collection
 	creditColl          *mongo.Collection
+	actionColl          *mongo.Collection
 	trackColl           *mongo.Collection
 	closeC              chan struct{}
 }
@@ -67,6 +71,7 @@ func NewUserService(cli *mongo.Client) *UserService {
 		userStatColl:        cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
 		dailyStatColl:       cli.Database(DatabaseOfUserStatistics).Collection("daily_stats"),
 		cohortColl:          cli.Database(DatabaseOfUserStatistics).Collection("weekly_cohort"),
+		actionColl:          cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
 		trackColl:           cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
 		closeC:              make(chan struct{}),
 	}
@@ -98,12 +103,13 @@ func (us *UserService) Start() error {
 func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, now time.Time) error {
 	log.Info(ctx).Msgf("start stat weekly no knownledge base user at: %+v\n", now)
 	pg := api.Page{}
-	filter := api.Filter{}
+	rg := api.Range{}
+	filters := api.FilterStack{}
 	opts := &api.ListOptions{
 		KindSelector: "ai",
 		TypeSelector: UserTypeOfNoKnownledgeBase,
 	}
-	result, err := us.List(ctx, pg, filter, opts)
+	result, err := us.List(ctx, pg, rg, filters, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msgf("stat weekly no knownledge base user failed at %+v\n", now)
 		return err
@@ -138,12 +144,13 @@ func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, n
 func (us *UserService) weeklyHighKnownledgeBaseUserTracking(ctx context.Context, now time.Time) error {
 	log.Info(ctx).Msgf("start stat weekly high knownledge base user at: %+v\n", now)
 	pg := api.Page{}
-	filter := api.Filter{}
+	rg := api.Range{}
+	filters := api.FilterStack{}
 	opts := &api.ListOptions{
 		KindSelector: "ai",
 		TypeSelector: UserTypeOfHighKnownledgeBase,
 	}
-	result, err := us.List(ctx, pg, filter, opts)
+	result, err := us.List(ctx, pg, rg, filters, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msgf("stat weekly high knownledge base user failed at %+v\n", now)
 		return err
@@ -179,13 +186,13 @@ func (us *UserService) Stop() error {
 	return nil
 }
 
-func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("user service list api")
+func (us *UserService) List(ctx context.Context, pg api.Page, rg api.Range, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
+	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("user service list api")
 	switch opts.TypeSelector {
-	case UserTypeOfRegister:
-		return us.listRegisterUsers(ctx, pg, filter, opts)
+	case UserTypeOfRegister, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed:
+		return us.listSpecifiedUsers(ctx, pg, rg, filters, opts)
 	case UserTypeOfPremium:
-		return us.listPremiumUsers(ctx, pg, filter, opts)
+		return us.listPremiumUsers(ctx, pg, filters, opts)
 	case UserTypeOfNoKnownledgeBase:
 		return us.listNoKnownledgeBaseUsers(ctx, pg, opts)
 	case UserTypeOfHighKnownledgeBase:
@@ -195,11 +202,11 @@ func (us *UserService) List(ctx context.Context, pg api.Page, filter api.Filter,
 	case UserTypeOfDailyUserNumber:
 		return us.listDailyUserNumber(ctx, pg, opts)
 	default:
-		return us.list(ctx, pg, filter, opts)
+		return us.list(ctx, pg, filters, opts)
 	}
 }
 
-func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) list(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -210,7 +217,7 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 		skip = 0
 	}
 
-	query := addFilter(ctx, filter)
+	query := addFilter(ctx, filters)
 	if opts.KindSelector == "ai" {
 		query["usages.ai.app"] = bson.M{"$ne": 0}
 	} else if opts.KindSelector == "connect" {
@@ -270,7 +277,7 @@ func (us *UserService) list(ctx context.Context, pg api.Page, filter api.Filter,
 	}, nil
 }
 
-func (us *UserService) listRegisterUsers(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) listRegisterUsers(ctx context.Context, pg api.Page, rg api.Range, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -281,11 +288,11 @@ func (us *UserService) listRegisterUsers(ctx context.Context, pg api.Page, filte
 		skip = 0
 	}
 
-	start, end, err := us.getRangeOfTime(ctx, pg.Range)
+	start, end, err := us.getRangeTime(ctx, rg)
 	if err != nil {
 		return nil, err
 	}
-	query := addFilter(ctx, filter)
+	query := addFilter(ctx, filters)
 	query["created_at"] = bson.M{
 		"$gte": start,
 		"$lte": end,
@@ -343,7 +350,104 @@ func (us *UserService) listRegisterUsers(ctx context.Context, pg api.Page, filte
 	}, nil
 }
 
-func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, rg api.Range, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+		users []string
+		err   error
+	)
+
+	if skip < 0 {
+		skip = 0
+	}
+
+	switch opts.TypeSelector {
+	case UserTypeOfRegister:
+		return us.listRegisterUsers(ctx, pg, rg, filters, opts)
+	case UserTypeOfLogin:
+		users, err = us.getLoginUsers(ctx, rg)
+		if err != nil {
+			log.Error(ctx).Err(err).Msg("failed to get login users")
+			return nil, err
+		}
+	case UserTypeOfCreated:
+		if opts.KindSelector == "connect" {
+			users, err = us.getConnectCreatedUsers(ctx, rg)
+			if err != nil {
+				return nil, err
+			}
+		} else if opts.KindSelector == "ai" {
+			users, err = us.getAICreatedUsers(ctx, rg)
+			if err != nil {
+				return nil, err
+			}
+		}
+	case UserTypeOfUsed:
+		if opts.KindSelector == "connect" {
+			users, err = us.getConnectUsedUsers(ctx, rg)
+			if err != nil {
+				return nil, err
+			}
+		} else if opts.KindSelector == "ai" {
+			users, err = us.getAIUsedUsers(ctx, rg)
+			if err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+
+	query := addFilter(ctx, filters)
+	query["oidc_id"] = bson.M{
+		"$in": users,
+	}
+
+	pg.Total = int64(len(users))
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		user := &models.User{}
+		if err = cursor.Decode(user); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		list = append(list, user)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -354,7 +458,7 @@ func (us *UserService) listPremiumUsers(ctx context.Context, pg api.Page, filter
 		skip = 0
 	}
 
-	query := addFilter(ctx, filter)
+	query := addFilter(ctx, filters)
 	if opts.KindSelector == "ai" {
 		query["class.ai.premium"] = true
 	} else if opts.KindSelector == "connect" {
@@ -588,7 +692,7 @@ func (us *UserService) listCohortUsers(ctx context.Context, pg api.Page, opts *a
 func (us *UserService) listDailyUserNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	query := bson.M{
 		"date": bson.M{
-			"$gte": GetRangeStartAt(ctx, pg.Range),
+			"$gte": GetStartAt(ctx, pg.Range),
 			// "$lte": end,
 		},
 		"tag": pg.Tag,
@@ -657,11 +761,11 @@ func (us *UserService) Get(ctx context.Context, oid string, opts *api.GetOptions
 	return nil, api.ErrUnsupportedKind.WithMessage(fmt.Sprintf("unsupported kind: %s", opts.KindSelector))
 }
 
-func addFilter(ctx context.Context, filter api.Filter) bson.M {
-	if filter.Columns == nil {
+func addFilter(ctx context.Context, fs api.FilterStack) bson.M {
+	if fs.Filters == nil {
 		return bson.M{}
 	}
-	if len(filter.Columns) == 0 {
+	if len(fs.Filters) == 0 {
 		return bson.M{}
 	}
 	var (
@@ -669,7 +773,7 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 		err error
 	)
 	results := make([]bson.M, 0)
-	for _, column := range filter.Columns {
+	for _, column := range fs.Filters {
 		if column.Operator == "isBefore" || column.Operator == "isAfter" {
 			at, err = time.Parse("2006-01-02T15:04:05.000", column.Value)
 			if err != nil {
@@ -696,7 +800,7 @@ func addFilter(ctx context.Context, filter api.Filter) bson.M {
 		}
 	}
 	query := bson.M{}
-	if filter.Operator == "or" {
+	if fs.Operator == "or" {
 		query["$or"] = results
 	} else {
 		query["$and"] = results
@@ -886,7 +990,242 @@ func (us *UserService) getLastWeekUsageUserList(ctx context.Context) ([]string, 
 	return userList, userMap, nil
 }
 
-func GetRangeStartAt(ctx context.Context, rg string) time.Time {
+func (us *UserService) getLoginUsers(ctx context.Context, rg api.Range) ([]string, error) {
+	layout := "2006-01-02"
+	now := time.Now()
+	if rg.Start == "" || rg.End == "" {
+		rg.Start = now.AddDate(0, 0, -1).Format(layout)
+		rg.End = now.Format(layout)
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"time", bson.M{
+					"$gte": rg.Start,
+					"$lte": rg.End,
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$usersub"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+	}
+	cursor, err := us.actionColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	users := make([]string, 0)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	for cursor.Next(ctx) {
+		var ug userGroup
+		if err = cursor.Decode(&ug); err != nil {
+			return nil, err
+		}
+		users = append(users, ug.User)
+	}
+	return users, nil
+}
+
+func (us *UserService) getConnectCreatedUsers(ctx context.Context, rg api.Range) ([]string, error) {
+	start, end, err := us.getRangeTime(ctx, rg)
+	if err != nil {
+		return nil, err
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"created_at", bson.M{
+					"$gte": start,
+					"$lte": end,
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$created_by"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+		{
+			{"$sort", bson.D{
+				{"count", -1},
+			}},
+		},
+	}
+	cursor, err := us.connectionColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	users := make([]string, 0)
+	for cursor.Next(ctx) {
+		var ug userGroup
+		if err = cursor.Decode(&ug); err != nil {
+			return nil, err
+		}
+		users = append(users, ug.User)
+	}
+	return users, nil
+}
+
+func (us *UserService) getAICreatedUsers(ctx context.Context, rg api.Range) ([]string, error) {
+	start, end, err := us.getRangeTime(ctx, rg)
+	if err != nil {
+		return nil, err
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"created_at", bson.M{
+					"$gte": start,
+					"$lte": end,
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$created_by"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+	}
+	cursor, err := us.appColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	users := make([]string, 0)
+	for cursor.Next(ctx) {
+		var ug userGroup
+		if err = cursor.Decode(&ug); err != nil {
+			return nil, err
+		}
+		users = append(users, ug.User)
+	}
+	return users, nil
+}
+
+func (us *UserService) getConnectUsedUsers(ctx context.Context, rg api.Range) ([]string, error) {
+	start, end, err := us.getRangeTime(ctx, rg)
+	if err != nil {
+		return nil, err
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"collected_at", bson.M{
+					"$gt":  start,
+					"$lte": end,
+				}},
+				{"delivered_num", bson.M{
+					"$ne": 0,
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$user_id"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+	}
+	cursor, err := us.billColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	users := make([]string, 0)
+	for cursor.Next(ctx) {
+		var ug userGroup
+		if err = cursor.Decode(&ug); err != nil {
+			return nil, err
+		}
+		users = append(users, ug.User)
+	}
+	return users, nil
+}
+
+func (us *UserService) getAIUsedUsers(ctx context.Context, rg api.Range) ([]string, error) {
+	start, end, err := us.getRangeTime(ctx, rg)
+	if err != nil {
+		return nil, err
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"collected_at", bson.M{
+					"$gte": start,
+					"$lt":  end,
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$user_id"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+	}
+	cursor, err := us.aiBillColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	users := make([]string, 0)
+	for cursor.Next(ctx) {
+		var ug userGroup
+		if err = cursor.Decode(&ug); err != nil {
+			return nil, err
+		}
+		users = append(users, ug.User)
+	}
+	return users, nil
+}
+
+func GetStartAt(ctx context.Context, rg string) time.Time {
 	now := time.Now()
 	switch rg {
 	case "Month":
@@ -909,18 +1248,41 @@ func GetRangeStartAt(ctx context.Context, rg string) time.Time {
 	}
 }
 
-func (us *UserService) getRangeOfTime(ctx context.Context, rg string) (time.Time, time.Time, error) {
+func (us *UserService) getRangeTime(ctx context.Context, rg api.Range) (time.Time, time.Time, error) {
 	now := time.Now()
-	if rg == "" {
-		return now, now, api.ErrParseRange.WithMessage("range is empty")
-	}
-	if strings.Contains(rg, "T") {
-		rg = strings.Split(rg, "T")[0]
-	}
 	layout := "2006-01-02"
-	date, err := time.Parse(layout, rg)
+	parseTimeFromString := func(t string) (time.Time, error) {
+		if strings.Contains(t, "T") {
+			t = strings.Split(t, "T")[0]
+		}
+		return time.Parse(layout, t)
+	}
+
+	if rg.Start == "" && rg.End == "" {
+		return now.AddDate(0, 0, -1), now, nil
+	} else if rg.Start == "" {
+		end, err := parseTimeFromString(rg.End)
+		if err != nil {
+			return now, now, err
+		}
+		return end.AddDate(0, 0, -1), end, nil
+	} else if rg.End == "" {
+		start, err := parseTimeFromString(rg.Start)
+		if err != nil {
+			return now, now, err
+		}
+		return start, start.AddDate(0, 0, 1), nil
+	}
+	start, err := parseTimeFromString(rg.Start)
 	if err != nil {
 		return now, now, err
 	}
-	return date, date.AddDate(0, 0, 1), nil
+	if rg.Start == rg.End {
+		return start, start.AddDate(0, 0, 1), nil
+	}
+	end, err := parseTimeFromString(rg.End)
+	if err != nil {
+		return now, now, err
+	}
+	return start, end, nil
 }

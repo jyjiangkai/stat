@@ -40,12 +40,12 @@ func main() {
 
 	svc := services.NewUserService(cli)
 	pg := api.Page{}
-	filter := api.Filter{}
+	req := api.NewRequest()
 	opts := &api.ListOptions{
 		KindSelector: "ai",
 		TypeSelector: "marketing",
 	}
-	result, err := svc.List(ctx, pg, filter, opts)
+	result, err := svc.List(ctx, pg, req.Range, req.FilterStack, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msg("failed to list weekly marketing user")
 		return

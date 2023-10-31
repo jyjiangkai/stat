@@ -44,10 +44,11 @@ func NewUserController(handler *services.UserService) *UserController {
 func (uc *UserController) List(ctx *gin.Context) (any, error) {
 	pg := api.Page{}
 	if err := ctx.BindQuery(&pg); err != nil {
+		log.Error(ctx).Err(err).Msg("failed to parse page parameters")
 		return nil, api.ErrParsePaging
 	}
-	filter := api.NewFilter()
-	if err := ctx.Bind(&filter); err != nil {
+	req := api.NewRequest()
+	if err := ctx.Bind(&req); err != nil {
 		log.Error(ctx).Err(err).Msg("failed to parse filting parameters")
 		// TODO(jiangkai): fix me
 		if !strings.Contains(err.Error(), "EOF") {
@@ -60,7 +61,7 @@ func (uc *UserController) List(ctx *gin.Context) (any, error) {
 		KindSelector: kind,
 		TypeSelector: userType,
 	}
-	result, err := uc.svc.List(ctx, pg, filter, opts)
+	result, err := uc.svc.List(ctx, pg, req.Range, req.FilterStack, opts)
 	if err != nil {
 		return nil, err
 	}

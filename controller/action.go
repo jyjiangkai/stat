@@ -42,8 +42,8 @@ func (ac *ActionController) List(ctx *gin.Context) (any, error) {
 	if pg.SortBy == "null" {
 		pg.SortBy = "time"
 	}
-	filter := api.NewFilter()
-	if err := ctx.Bind(&filter); err != nil {
+	req := api.NewRequest()
+	if err := ctx.Bind(&req); err != nil {
 		log.Error(ctx).Err(err).Msg("failed to parse filting parameters")
 		// TODO(jiangkai): fix me
 		if !strings.Contains(err.Error(), "EOF") {
@@ -56,7 +56,7 @@ func (ac *ActionController) List(ctx *gin.Context) (any, error) {
 		KindSelector: kind,
 		TypeSelector: userType,
 	}
-	result, err := ac.svc.List(ctx, pg, filter, opts)
+	result, err := ac.svc.List(ctx, pg, req.FilterStack, opts)
 	if err != nil {
 		return nil, err
 	}

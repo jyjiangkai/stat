@@ -192,19 +192,19 @@ func (as *ActionService) Stop() error {
 	return nil
 }
 
-func (as *ActionService) List(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Any("page", pg).Any("filter", filter).Any("opts", opts).Msg("action service list api")
+func (as *ActionService) List(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
+	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("action service list api")
 	switch opts.TypeSelector {
 	case ActionType:
-		return as.listSpecifiedActionTypeUsers(ctx, pg, filter, opts)
+		return as.listSpecifiedActionTypeUsers(ctx, pg, filters, opts)
 	case DailyActionNumber:
 		return as.listDailyActionNumber(ctx, pg, opts)
 	default:
-		return as.list(ctx, pg, filter, opts)
+		return as.list(ctx, pg, filters, opts)
 	}
 }
 
-func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+func (as *ActionService) list(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -215,7 +215,7 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 		skip = 0
 	}
 
-	query := addActionFilter(ctx, filter)
+	query := addActionFilter(ctx, filters)
 	query["website"] = bson.M{"$ne": "https://ai.vanustest.com"}
 	log.Info(ctx).Any("query", query).Msg("show action list api query criteria")
 	cnt, err := as.actionColl.CountDocuments(ctx, query)
@@ -300,7 +300,7 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filter api.Filte
 	}, nil
 }
 
-func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg api.Page, filter api.Filter, opts *api.ListOptions) (*api.ListResult, error) {
+func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -311,7 +311,7 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 		skip = 0
 	}
 
-	query, atype := genQueryFromActionTypeFilter(ctx, filter)
+	query, atype := genQueryFromActionTypeFilter(ctx, filters)
 	query["website"] = bson.M{"$ne": "https://ai.vanustest.com"}
 	cnt, err := as.actionColl.CountDocuments(ctx, query)
 	if err != nil {
@@ -388,7 +388,7 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 func (as *ActionService) listDailyActionNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	query := bson.M{
 		"date": bson.M{
-			"$gte": GetRangeStartAt(ctx, pg.Range),
+			"$gte": GetStartAt(ctx, pg.Range),
 			// "$lte": end,
 		},
 		"tag": pg.Tag,
@@ -475,19 +475,19 @@ func toRealTime(ctx context.Context, timestampStr string) (string, error) {
 	return time.Unix(0, timestamp).UTC().Format(time.RFC3339), nil
 }
 
-func genQueryFromActionTypeFilter(ctx context.Context, filter api.Filter) (bson.M, string) {
-	if filter.Columns == nil {
+func genQueryFromActionTypeFilter(ctx context.Context, filters api.FilterStack) (bson.M, string) {
+	if filters.Filters == nil {
 		return bson.M{"action": bson.M{"$eq": ActionTypeOfChat}}, ActionTypeOfChat
 	}
-	if len(filter.Columns) == 0 {
+	if len(filters.Filters) == 0 {
 		return bson.M{"action": bson.M{"$eq": ActionTypeOfChat}}, ActionTypeOfChat
 	}
-	if len(filter.Columns) > 1 {
+	if len(filters.Filters) > 1 {
 		return bson.M{"action": bson.M{"$eq": ActionTypeOfChat}}, ActionTypeOfChat
 	}
 	var actionType string
 	results := make([]bson.M, 0)
-	for _, column := range filter.Columns {
+	for _, column := range filters.Filters {
 		if !strings.EqualFold(column.ColumnID, "action") {
 			continue
 		}
@@ -509,7 +509,7 @@ func genQueryFromActionTypeFilter(ctx context.Context, filter api.Filter) (bson.
 		}
 	}
 	query := bson.M{}
-	if filter.Operator == "or" {
+	if filters.Operator == "or" {
 		query["$or"] = results
 	} else {
 		query["$and"] = results
@@ -517,15 +517,15 @@ func genQueryFromActionTypeFilter(ctx context.Context, filter api.Filter) (bson.
 	return query, actionType
 }
 
-func addActionFilter(ctx context.Context, filter api.Filter) bson.M {
-	if filter.Columns == nil {
+func addActionFilter(ctx context.Context, filters api.FilterStack) bson.M {
+	if filters.Filters == nil {
 		return bson.M{}
 	}
-	if len(filter.Columns) == 0 {
+	if len(filters.Filters) == 0 {
 		return bson.M{}
 	}
 	results := make([]bson.M, 0)
-	for _, column := range filter.Columns {
+	for _, column := range filters.Filters {
 		switch column.Operator {
 		case "includes":
 			results = append(results, bson.M{column.ColumnID: bson.M{"$regex": column.Value}})
@@ -546,7 +546,7 @@ func addActionFilter(ctx context.Context, filter api.Filter) bson.M {
 		}
 	}
 	query := bson.M{}
-	if filter.Operator == "or" {
+	if filters.Operator == "or" {
 		query["$or"] = results
 	} else {
 		query["$and"] = results
