@@ -98,7 +98,7 @@ func (as *ActionService) weeklyViewPriceUserTracking(ctx context.Context, now ti
 		"class.ai.premium":         false,
 		"class.connect.premium":    false,
 		"bills.ai.total":           bson.M{"$ne": 0},
-		"usages.ai.knowledge_base": bson.M{"$gte": 2},
+		"usages.ai.knowledge_base": bson.M{"$gte": 1},
 	}
 	cursor, err := as.statColl.Find(ctx, query)
 	if err != nil {
