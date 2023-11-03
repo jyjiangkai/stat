@@ -216,7 +216,7 @@ type Daily struct {
 	TryVanusActionNumber                             int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
 	SignInWithGithubActionNumber                     int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
 	SignInWithGoogleActionNumber                     int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
-	SignInWithMicrosoftActionNumber                  int64     `json:"sign_in_with_microsoft_actiont_number" bson:"sign_in_with_microsoft_action_number"`
+	SignInWithMicrosoftActionNumber                  int64     `json:"sign_in_with_microsoft_action_number" bson:"sign_in_with_microsoft_action_number"`
 	ContactUsActionNumber                            int64     `json:"contact_us_action_number" bson:"contact_us_action_number"`
 	ShopifyToGoogleSheetsWithNewOrderActionNumber    int64     `json:"shopify_to_googlesheets_with_new_order_action_number" bson:"shopify_to_googlesheets_with_new_order_action_number"`
 	ShopifyToGoogleSheetsWithCancelOrderActionNumber int64     `json:"shopify_to_googlesheets_with_cancel_order_action_number" bson:"shopify_to_googlesheets_with_cancel_order_action_number"`
