@@ -22,6 +22,7 @@ import (
 
 const (
 	DatabaseOfUserAnalytics            = "vanus_user_analytics"
+	ConnectionTemplateCreatedNumber    = "connection_template_created_number"
 	ConnectionTemplateCreated          = "connection_template_created"
 	ActionType                         = "action_type"
 	DailyActionNumber                  = "daily_action_number"
@@ -198,8 +199,10 @@ func (as *ActionService) Stop() error {
 func (as *ActionService) List(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("action service list api")
 	switch opts.TypeSelector {
-	case ConnectionTemplateCreated:
+	case ConnectionTemplateCreatedNumber:
 		return as.listConnectionTemplateCreatedNumber(ctx, pg, opts)
+	case ConnectionTemplateCreated:
+		return as.listConnectionTemplateCreated(ctx, pg, filters, opts)
 	case ActionType:
 		return as.listSpecifiedActionTypeUsers(ctx, pg, filters, opts)
 	case DailyActionNumber:
@@ -381,6 +384,95 @@ func (as *ActionService) listConnectionTemplateCreatedNumber(ctx context.Context
 			break
 		}
 		date = date.AddDate(0, 0, 1)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (as *ActionService) listConnectionTemplateCreated(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+	)
+
+	if skip < 0 {
+		skip = 0
+	}
+
+	if pg.Range == "" || pg.Range == "null" {
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+
+	date, err := time.Parse("2006-01-02", pg.Range)
+	if err != nil {
+		return nil, err
+	}
+	query := addActionFilter(ctx, filters)
+	query["created_at"] = bson.M{
+		"$gte": date,
+		"$lte": date.AddDate(0, 0, 1),
+	}
+	if pg.Tag == "" || pg.Tag == "all" {
+		query["template_id"] = bson.M{"$exists": true}
+	} else {
+		query["template_id"] = pg.Range
+	}
+	log.Info(ctx).Any("query", query).Msg("show connection template created list api query criteria")
+	cnt, err := as.connectionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+	if cnt <= skip {
+		return nil, api.ErrPageArgumentsTooLarge
+	}
+
+	pg.Total = cnt
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	} else {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := as.connectionColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		cn := &models.Connection{}
+		if err = cursor.Decode(cn); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		obtainConnectionTemplateNameFromID(cn)
+		list = append(list, cn)
 	}
 	return &api.ListResult{
 		List: list,
@@ -640,4 +732,42 @@ func addActionFilter(ctx context.Context, filters api.FilterStack) bson.M {
 		query["$and"] = results
 	}
 	return query
+}
+
+func obtainConnectionTemplateNameFromID(cn *models.Connection) {
+	switch cn.Template {
+	case "20230306_1":
+		cn.SourceType = "Github"
+		cn.SinkType = "Feishu"
+	case "20230329_0":
+		cn.SourceType = "ChatGPT"
+		cn.SinkType = "Feishu"
+	case "20230425_4":
+		cn.SourceType = "Github"
+		cn.SinkType = "Snowflake"
+	case "20230525_1":
+		cn.SourceType = "Whatsapp"
+		cn.SinkType = "Whatsapp"
+	case "20231023_2":
+		cn.SourceType = "Shopify"
+		cn.SinkType = "Google Sheets"
+	case "20231023_4":
+		cn.SourceType = "Shopify"
+		cn.SinkType = "Google Sheets"
+	case "20231023_5":
+		cn.SourceType = "Shopify"
+		cn.SinkType = "Outlook"
+	case "20231023_6":
+		cn.SourceType = "Shopify"
+		cn.SinkType = "Outlook"
+	case "20231023_7":
+		cn.SourceType = "Shopify"
+		cn.SinkType = "Slack"
+	case "20231023_1":
+		cn.SourceType = "Shopify"
+		cn.SinkType = "Slack"
+	default:
+		cn.SourceType = "Unknown"
+		cn.SinkType = "Unknown"
+	}
 }

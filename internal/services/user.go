@@ -19,15 +19,16 @@ import (
 )
 
 const (
-	UserTypeOfRegister           = "register"
-	UserTypeOfLogin              = "login"
-	UserTypeOfCreated            = "created"
-	UserTypeOfUsed               = "used"
-	UserTypeOfPremium            = "premium"
-	UserTypeOfNoKnownledgeBase   = "no_knowledge_base"
-	UserTypeOfHighKnownledgeBase = "high_knowledge_base"
-	UserTypeOfCohort             = "cohort"
-	UserTypeOfDailyUserNumber    = "daily_user_number"
+	UserTypeOfRegister                  = "register"
+	UserTypeOfLogin                     = "login"
+	UserTypeOfCreated                   = "created"
+	UserTypeOfUsed                      = "used"
+	UserTypeOfConnectionTemplateCreated = "connection_template_created"
+	UserTypeOfPremium                   = "premium"
+	UserTypeOfNoKnownledgeBase          = "no_knowledge_base"
+	UserTypeOfHighKnownledgeBase        = "high_knowledge_base"
+	UserTypeOfCohort                    = "cohort"
+	UserTypeOfDailyUserNumber           = "daily_user_number"
 )
 
 var (
@@ -189,7 +190,7 @@ func (us *UserService) Stop() error {
 func (us *UserService) List(ctx context.Context, pg api.Page, rg api.Range, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("user service list api")
 	switch opts.TypeSelector {
-	case UserTypeOfRegister, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed:
+	case UserTypeOfRegister, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed, UserTypeOfConnectionTemplateCreated:
 		return us.listSpecifiedUsers(ctx, pg, rg, filters, opts)
 	case UserTypeOfPremium:
 		return us.listPremiumUsers(ctx, pg, filters, opts)
@@ -395,6 +396,11 @@ func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, rg a
 			if err != nil {
 				return nil, err
 			}
+		}
+	case UserTypeOfConnectionTemplateCreated:
+		users, err = us.getConnectionTemplateCreatedUsers(ctx, pg.Range)
+		if err != nil {
+			return nil, err
 		}
 	default:
 		return &api.ListResult{
@@ -1202,6 +1208,59 @@ func (us *UserService) getAIUsedUsers(ctx context.Context, rg api.Range) ([]stri
 		},
 	}
 	cursor, err := us.aiBillColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	users := make([]string, 0)
+	for cursor.Next(ctx) {
+		var ug userGroup
+		if err = cursor.Decode(&ug); err != nil {
+			return nil, err
+		}
+		users = append(users, ug.User)
+	}
+	return users, nil
+}
+
+func (us *UserService) getConnectionTemplateCreatedUsers(ctx context.Context, rg string) ([]string, error) {
+	date, err := time.Parse("2006-01-02", rg)
+	if err != nil {
+		return nil, err
+	}
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"template_id", bson.M{
+					"$exists": true,
+				}},
+				{"created_at", bson.M{
+					"$gte": date,
+					"$lte": date.AddDate(0, 0, 1),
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$created_by"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+		{
+			{"$sort", bson.D{
+				{"count", -1},
+			}},
+		},
+	}
+	cursor, err := us.connectionColl.Aggregate(ctx, pipeline)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			log.Warn(ctx).Msg("no documents")

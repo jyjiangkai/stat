@@ -178,6 +178,7 @@ type Connection struct {
 	Status        string               `json:"status" bson:"status"`
 	Description   string               `json:"description" bson:"description"`
 	TotalUsage    uint64               `json:"total_usage" bson:"total_usage"`
+	Template      string               `json:"template_id" bson:"template_id"`
 	EventbusID    primitive.ObjectID   `json:"eventbus_id" bson:"eventbus_id"`
 	Subscriptions []primitive.ObjectID `json:"subscriptions" bson:"subscriptions"`
 	SourceID      primitive.ObjectID   `json:"source_id" bson:"source_id"`
