@@ -22,6 +22,7 @@ import (
 
 const (
 	DatabaseOfUserAnalytics            = "vanus_user_analytics"
+	ConnectionTemplateCreated          = "connection_template_created"
 	ActionType                         = "action_type"
 	DailyActionNumber                  = "daily_action_number"
 	ActionTypeOfChat                   = "chat"
@@ -30,25 +31,27 @@ const (
 )
 
 type ActionService struct {
-	cli           *mongo.Client
-	appColl       *mongo.Collection
-	statColl      *mongo.Collection
-	dailyStatColl *mongo.Collection
-	actionColl    *mongo.Collection
-	trackColl     *mongo.Collection
-	appCache      sync.Map
-	closeC        chan struct{}
+	cli            *mongo.Client
+	appColl        *mongo.Collection
+	connectionColl *mongo.Collection
+	statColl       *mongo.Collection
+	dailyStatColl  *mongo.Collection
+	actionColl     *mongo.Collection
+	trackColl      *mongo.Collection
+	appCache       sync.Map
+	closeC         chan struct{}
 }
 
 func NewActionService(cli *mongo.Client) *ActionService {
 	return &ActionService{
-		cli:           cli,
-		appColl:       cli.Database(db.GetDatabaseName()).Collection("ai_app"),
-		statColl:      cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
-		dailyStatColl: cli.Database(DatabaseOfUserStatistics).Collection("daily_stats"),
-		actionColl:    cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
-		trackColl:     cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
-		closeC:        make(chan struct{}),
+		cli:            cli,
+		appColl:        cli.Database(db.GetDatabaseName()).Collection("ai_app"),
+		connectionColl: cli.Database(db.GetDatabaseName()).Collection("connections"),
+		statColl:       cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
+		dailyStatColl:  cli.Database(DatabaseOfUserStatistics).Collection("daily_stats"),
+		actionColl:     cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
+		trackColl:      cli.Database(DatabaseOfUserAnalytics).Collection("user_tracks"),
+		closeC:         make(chan struct{}),
 	}
 }
 
@@ -195,6 +198,8 @@ func (as *ActionService) Stop() error {
 func (as *ActionService) List(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("action service list api")
 	switch opts.TypeSelector {
+	case ConnectionTemplateCreated:
+		return as.listConnectionTemplateCreatedNumber(ctx, pg, opts)
 	case ActionType:
 		return as.listSpecifiedActionTypeUsers(ctx, pg, filters, opts)
 	case DailyActionNumber:
@@ -293,6 +298,67 @@ func (as *ActionService) list(ctx context.Context, pg api.Page, filters api.Filt
 			action.App = models.NewActionApp()
 		}
 		list = append(list, action)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (as *ActionService) listConnectionTemplateCreatedNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"template_id", bson.M{"$exists": true}},
+			}},
+		},
+		{
+			{"$project", bson.D{
+				{"date", bson.D{
+					{"$dateToString", bson.M{"format": "%Y-%m-%d", "date": "$created_at"}},
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$date"},
+				{"count", bson.M{"$sum": 1}},
+			}},
+		},
+		{
+			{"$sort", bson.D{
+				{"_id", 1},
+			}},
+		},
+	}
+	if pg.Range != "" {
+		pipeline[0] = bson.D{
+			{"$match", bson.D{
+				{"template_id", pg.Range},
+			}},
+		}
+	}
+	type countGroup struct {
+		Date  string `bson:"_id"`
+		Count uint64 `bson:"count"`
+	}
+	cursor, err := as.connectionColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		var cg countGroup
+		if err = cursor.Decode(&cg); err != nil {
+			return nil, err
+		}
+		list = append(list, cg)
 	}
 	return &api.ListResult{
 		List: list,
