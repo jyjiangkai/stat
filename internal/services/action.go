@@ -352,13 +352,35 @@ func (as *ActionService) listConnectionTemplateCreatedNumber(ctx context.Context
 	}
 	defer cursor.Close(ctx)
 
-	list := make([]interface{}, 0)
+	layout := "2006-01-02"
+	results := make(map[string]countGroup, 0)
 	for cursor.Next(ctx) {
 		var cg countGroup
 		if err = cursor.Decode(&cg); err != nil {
 			return nil, err
 		}
-		list = append(list, cg)
+		results[cg.Date] = cg
+	}
+	list := make([]interface{}, 0)
+	now := time.Now()
+	date := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+	for {
+		timeStr := date.Format(layout)
+		if cg, ok := results[timeStr]; ok {
+			list = append(list, countGroup{
+				Date:  timeStr,
+				Count: cg.Count,
+			})
+		} else {
+			list = append(list, countGroup{
+				Date:  timeStr,
+				Count: 0,
+			})
+		}
+		if timeStr == now.Format(layout) {
+			break
+		}
+		date = date.AddDate(0, 0, 1)
 	}
 	return &api.ListResult{
 		List: list,
