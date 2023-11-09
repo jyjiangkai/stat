@@ -61,9 +61,9 @@ func NewActionService(cli *mongo.Client) *ActionService {
 func (as *ActionService) Start() error {
 	ctx := context.Background()
 	go func() {
-		ticker := time.NewTicker(time.Hour)
+		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
-		defer log.Warn(ctx).Err(nil).Msg("update user action time routine exit")
+		defer log.Warn(ctx).Err(nil).Msg("update time format routine exit")
 		for {
 			select {
 			case <-as.closeC:
@@ -72,8 +72,21 @@ func (as *ActionService) Start() error {
 			case <-ticker.C:
 				err := as.UpdateTime(ctx)
 				if err != nil {
-					log.Error(ctx).Err(err).Msgf("failed to update user action time at %+v", time.Now())
+					log.Error(ctx).Err(err).Msgf("failed to update time format at %+v", time.Now())
 				}
+			}
+		}
+	}()
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		defer log.Warn(ctx).Err(nil).Msg("stat weekly view price user track routine exit")
+		for {
+			select {
+			case <-as.closeC:
+				log.Info(ctx).Msg("action service stopped.")
+				return
+			case <-ticker.C:
 				now := time.Now()
 				if now.Weekday() == time.Monday && now.Hour() == 2 {
 					as.weeklyViewPriceUserTracking(ctx, now)
