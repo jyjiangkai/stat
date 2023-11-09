@@ -90,7 +90,7 @@ func (us *UserService) getConnectionBills(ctx context.Context, id primitive.Obje
 			{"$group", bson.D{
 				{"_id", "$collected_at"},
 				{"usage", bson.D{
-					{"$sum", "$usage_num"},
+					{"$sum", "$delivered_num"},
 				}},
 			}},
 		},
@@ -128,7 +128,7 @@ func (us *UserService) getUserBills(ctx context.Context, oid string) ([]models.B
 			{"$group", bson.D{
 				{"_id", "$collected_at"},
 				{"usage", bson.D{
-					{"$sum", "$usage_num"},
+					{"$sum", "$delivered_num"},
 				}},
 			}},
 		},

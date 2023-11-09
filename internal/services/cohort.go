@@ -457,7 +457,7 @@ func (ss *StatService) getConnectWeekUsage(ctx context.Context, oid string, week
 			{"$group", bson.D{
 				{"_id", "$user_id"},
 				{"usage", bson.D{
-					{"$sum", "$usage_num"},
+					{"$sum", "$delivered_num"},
 				}},
 			}},
 		},

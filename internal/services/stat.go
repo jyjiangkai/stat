@@ -859,7 +859,7 @@ func (ss *StatService) GetConnectBillChangedUserList(ctx context.Context, start,
 			{"$group", bson.D{
 				{"_id", "$user_id"},
 				{"usage", bson.D{
-					{"$sum", "$usage_num"},
+					{"$sum", "$delivered_num"},
 				}},
 			}},
 		},

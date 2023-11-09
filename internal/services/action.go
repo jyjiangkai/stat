@@ -35,6 +35,7 @@ type ActionService struct {
 	cli            *mongo.Client
 	appColl        *mongo.Collection
 	connectionColl *mongo.Collection
+	chatColl       *mongo.Collection
 	statColl       *mongo.Collection
 	dailyStatColl  *mongo.Collection
 	actionColl     *mongo.Collection
@@ -48,6 +49,7 @@ func NewActionService(cli *mongo.Client) *ActionService {
 		cli:            cli,
 		appColl:        cli.Database(db.GetDatabaseName()).Collection("ai_app"),
 		connectionColl: cli.Database(db.GetDatabaseName()).Collection("connections"),
+		chatColl:       cli.Database(db.GetDatabaseName()).Collection("ai_chat_history"),
 		statColl:       cli.Database(DatabaseOfUserStatistics).Collection("user_stats"),
 		dailyStatColl:  cli.Database(DatabaseOfUserStatistics).Collection("daily_stats"),
 		actionColl:     cli.Database(DatabaseOfUserAnalytics).Collection("user_actions"),
@@ -608,6 +610,18 @@ func (as *ActionService) Get(ctx context.Context, oid string, opts *api.GetOptio
 }
 
 func (as *ActionService) UpdateTime(ctx context.Context) error {
+	err := as.UpdateActionTime(ctx)
+	if err != nil {
+		return err
+	}
+	err = as.UpdateChatHistoryTime(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (as *ActionService) UpdateActionTime(ctx context.Context) error {
 	query := bson.M{}
 	query["time"] = bson.M{"$regex": "^16.*"}
 	cursor, err := as.actionColl.Find(ctx, query)
@@ -647,12 +661,52 @@ func (as *ActionService) UpdateTime(ctx context.Context) error {
 	return nil
 }
 
+func (as *ActionService) UpdateChatHistoryTime(ctx context.Context) error {
+	query := bson.M{}
+	query["time"] = bson.M{"$gte": 1690000000000}
+	cursor, err := as.chatColl.Find(ctx, query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
+		return err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	type ActionOfTimeStamp struct {
+		ID   primitive.ObjectID `json:"id" bson:"_id"`
+		Time int64              `bson:"time"`
+	}
+	for cursor.Next(ctx) {
+		action := &ActionOfTimeStamp{}
+		if err = cursor.Decode(action); err != nil {
+			return db.HandleDBError(err)
+		}
+		_, err = as.chatColl.UpdateOne(ctx,
+			bson.M{"_id": action.ID},
+			bson.M{
+				"$set": bson.M{
+					"time": toFormatTime(ctx, action.Time),
+				}})
+		if err != nil {
+			log.Error(ctx).Err(err).Str("id", action.ID.Hex()).Msg("failed to update time")
+		}
+	}
+	return nil
+}
+
 func toRealTime(ctx context.Context, timestampStr string) (string, error) {
 	timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
 	if err != nil {
 		return "", err
 	}
 	return time.Unix(0, timestamp).UTC().Format(time.RFC3339), nil
+}
+
+func toFormatTime(ctx context.Context, timestampInt int64) time.Time {
+	return time.Unix(0, timestampInt*int64(time.Millisecond)).UTC()
 }
 
 func genQueryFromActionTypeFilter(ctx context.Context, filters api.FilterStack) (bson.M, string) {

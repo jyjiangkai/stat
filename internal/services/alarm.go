@@ -95,7 +95,7 @@ func (as *AlarmService) AlarmOfConnectUsage(ctx context.Context, now time.Time) 
 			{"$group", bson.D{
 				{"_id", "$collected_at"},
 				{"usage", bson.D{
-					{"$sum", "$usage_num"},
+					{"$sum", "$delivered_num"},
 				}},
 			}},
 		},
