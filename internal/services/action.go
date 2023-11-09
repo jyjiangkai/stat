@@ -676,7 +676,7 @@ func (as *ActionService) UpdateActionTime(ctx context.Context) error {
 
 func (as *ActionService) UpdateChatHistoryTime(ctx context.Context) error {
 	query := bson.M{}
-	query["time"] = bson.M{"$gte": 1690000000000}
+	query["time_ms"] = bson.M{"$gte": 1690000000000}
 	cursor, err := as.chatColl.Find(ctx, query)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -690,7 +690,7 @@ func (as *ActionService) UpdateChatHistoryTime(ctx context.Context) error {
 
 	type ActionOfTimeStamp struct {
 		ID   primitive.ObjectID `json:"id" bson:"_id"`
-		Time int64              `bson:"time"`
+		Time int64              `bson:"time_ms"`
 	}
 	for cursor.Next(ctx) {
 		action := &ActionOfTimeStamp{}
