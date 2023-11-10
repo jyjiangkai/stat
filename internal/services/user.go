@@ -721,7 +721,7 @@ func (us *UserService) listDailyUserNumber(ctx context.Context, pg api.Page, opt
 	}()
 	list := make([]interface{}, 0)
 	for cursor.Next(ctx) {
-		daily := &models.Daily{}
+		daily := &models.DailyStatsOfUserNumber{}
 		if err = cursor.Decode(daily); err != nil {
 			return nil, db.HandleDBError(err)
 		}

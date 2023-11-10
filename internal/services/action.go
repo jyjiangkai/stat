@@ -33,6 +33,7 @@ const (
 
 type ActionService struct {
 	cli            *mongo.Client
+	userColl       *mongo.Collection
 	appColl        *mongo.Collection
 	connectionColl *mongo.Collection
 	chatColl       *mongo.Collection
@@ -47,6 +48,7 @@ type ActionService struct {
 func NewActionService(cli *mongo.Client) *ActionService {
 	return &ActionService{
 		cli:            cli,
+		userColl:       cli.Database(db.GetDatabaseName()).Collection("users"),
 		appColl:        cli.Database(db.GetDatabaseName()).Collection("ai_app"),
 		connectionColl: cli.Database(db.GetDatabaseName()).Collection("connections"),
 		chatColl:       cli.Database(db.GetDatabaseName()).Collection("ai_chat_history"),
@@ -580,7 +582,136 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 	}, nil
 }
 
+// 用于落地页用户行为次数统计，包括总的try vanus和shopify各个模版的try it
 func (as *ActionService) listDailyActionNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	log.Info(ctx).Str("tag", pg.Tag).Msg("===jk0===")
+	switch pg.Tag {
+	case "user_conversion_of_shopify_landing_page":
+		return as.conversionOfShopifyLandingPage(ctx, pg, opts)
+	case "user_conversion_of_github_landing_page":
+		return as.conversionOfGithubLandingPage(ctx, pg, opts)
+	case "user_action_of_shopify_landing_page", "user_action_of_github_landing_page":
+		return as.actionOfLandingPage(ctx, pg, opts)
+	}
+	return &api.ListResult{
+		List: []interface{}{},
+		P:    pg,
+	}, nil
+}
+
+func (as *ActionService) conversionOfShopifyLandingPage(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	query := bson.M{
+		"date": bson.M{
+			"$gte": GetStartAt(ctx, pg.Range),
+			// "$lte": end,
+		},
+		"tag": bson.M{
+			"$regex": UserActionOfShopifyLandingPage,
+		},
+	}
+	opt := options.FindOptions{
+		Sort: bson.M{"date": 1},
+	}
+	cursor, err := as.dailyStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				List: []interface{}{},
+				P:    pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		daily := &models.DailyStatsOfShopifyLandingPageActionNumber{}
+		if err = cursor.Decode(daily); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		users, err := as.registeredUserOfLandingPage(ctx, daily.Date, "shopify-landing")
+		if err != nil {
+			return nil, err
+		}
+		cnt, err := as.createdConnectionOfLandingPage(ctx, users)
+		if err != nil {
+			return nil, err
+		}
+		conversion := &models.UserConversion{
+			Date:       daily.Date,
+			Tag:        daily.Tag,
+			Entered:    daily.TotalCount(),
+			Tried:      daily.TriedCount(),
+			Registered: int64(len(users)),
+			Created:    cnt,
+		}
+		list = append(list, conversion)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (as *ActionService) conversionOfGithubLandingPage(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	query := bson.M{
+		"date": bson.M{
+			"$gte": GetStartAt(ctx, pg.Range),
+			// "$lte": end,
+		},
+		"tag": bson.M{
+			"$regex": UserActionOfGithubLandingPage,
+		},
+	}
+	opt := options.FindOptions{
+		Sort: bson.M{"date": 1},
+	}
+	cursor, err := as.dailyStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				List: []interface{}{},
+				P:    pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		daily := &models.DailyStatsOfGithubLandingPageActionNumber{}
+		if err = cursor.Decode(daily); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		users, err := as.registeredUserOfLandingPage(ctx, daily.Date, "github-landing")
+		if err != nil {
+			return nil, err
+		}
+		cnt, err := as.createdConnectionOfLandingPage(ctx, users)
+		if err != nil {
+			return nil, err
+		}
+		conversion := &models.UserConversion{
+			Date:       daily.Date,
+			Tag:        daily.Tag,
+			Entered:    daily.TotalCount(),
+			Tried:      daily.TriedCount(),
+			Registered: int64(len(users)),
+			Created:    cnt,
+		}
+		list = append(list, conversion)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (as *ActionService) actionOfLandingPage(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	query := bson.M{
 		"date": bson.M{
 			"$gte": GetStartAt(ctx, pg.Range),
@@ -605,17 +736,75 @@ func (as *ActionService) listDailyActionNumber(ctx context.Context, pg api.Page,
 		_ = cursor.Close(ctx)
 	}()
 	list := make([]interface{}, 0)
-	for cursor.Next(ctx) {
-		daily := &models.Daily{}
-		if err = cursor.Decode(daily); err != nil {
-			return nil, db.HandleDBError(err)
+	if pg.Tag == UserActionOfShopifyLandingPage {
+		for cursor.Next(ctx) {
+			daily := &models.DailyStatsOfShopifyLandingPageActionNumber{}
+			if err = cursor.Decode(daily); err != nil {
+				return nil, db.HandleDBError(err)
+			}
+			list = append(list, daily)
 		}
-		list = append(list, daily)
+	} else if pg.Tag == UserActionOfGithubLandingPage {
+		for cursor.Next(ctx) {
+			daily := &models.DailyStatsOfGithubLandingPageActionNumber{}
+			if err = cursor.Decode(daily); err != nil {
+				return nil, db.HandleDBError(err)
+			}
+			list = append(list, daily)
+		}
 	}
 	return &api.ListResult{
 		List: list,
 		P:    pg,
 	}, nil
+}
+
+func (as *ActionService) registeredUserOfLandingPage(ctx context.Context, date time.Time, ref string) ([]string, error) {
+	users := make([]string, 0)
+	if date.Before(time.Date(2023, 11, 10, 0, 0, 0, 0, time.UTC)) {
+		return users, nil
+	}
+	query := bson.M{
+		"ref": ref,
+		"created_at": bson.M{
+			"$gte": date,
+			"$lte": date.AddDate(0, 0, 1),
+		},
+	}
+	cursor, err := as.userColl.Find(ctx, query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return users, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	for cursor.Next(ctx) {
+		user := &cloud.User{}
+		if err = cursor.Decode(user); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		users = append(users, user.OID)
+	}
+	return users, nil
+}
+
+func (as *ActionService) createdConnectionOfLandingPage(ctx context.Context, users []string) (int64, error) {
+	if len(users) == 0 {
+		return 0, nil
+	}
+	query := bson.M{
+		"created_by": bson.M{
+			"$in": users,
+		},
+	}
+	cnt, err := as.connectionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return cnt, nil
 }
 
 func (as *ActionService) Get(ctx context.Context, oid string, opts *api.GetOptions) (*models.UserDetail, error) {

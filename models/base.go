@@ -205,15 +205,29 @@ type RegionInfo struct {
 	IntegrationExternalDNS string `bson:"integration_external_dns"`
 }
 
-type Daily struct {
+type UserConversion struct {
+	Date       time.Time `json:"date" bson:"date"`
+	Tag        string    `json:"tag" bson:"tag"`
+	Entered    int64     `json:"entered" bson:"entered"`
+	Tried      int64     `json:"tried" bson:"tried"`
+	Registered int64     `json:"registered" bson:"registered"`
+	Created    int64     `json:"created" bson:"created"`
+}
+
+type DailyStatsOfUserNumber struct {
+	Date                        time.Time `json:"date" bson:"date"`
+	Tag                         string    `json:"tag" bson:"tag"`
+	RegisterUserNumber          int64     `json:"register_user_number" bson:"register_user_number"`
+	LoginUserNumber             int64     `json:"login_user_number" bson:"login_user_number"`
+	ConnectionCreatedUserNumber int64     `json:"connection_created_user_number" bson:"connection_created_user_number"`
+	AppCreatedUserNumber        int64     `json:"app_created_user_number" bson:"app_created_user_number"`
+	ConnectionUsedUserNumber    int64     `json:"connection_used_user_number" bson:"connection_used_user_number"`
+	AppUsedUserNumber           int64     `json:"app_used_user_number" bson:"app_used_user_number"`
+}
+
+type DailyStatsOfShopifyLandingPageActionNumber struct {
 	Date                                             time.Time `json:"date" bson:"date"`
 	Tag                                              string    `json:"tag" bson:"tag"`
-	RegisterUserNumber                               int64     `json:"register_user_number" bson:"register_user_number"`
-	LoginUserNumber                                  int64     `json:"login_user_number" bson:"login_user_number"`
-	ConnectionCreatedUserNumber                      int64     `json:"connection_created_user_number" bson:"connection_created_user_number"`
-	AppCreatedUserNumber                             int64     `json:"app_created_user_number" bson:"app_created_user_number"`
-	ConnectionUsedUserNumber                         int64     `json:"connection_used_user_number" bson:"connection_used_user_number"`
-	AppUsedUserNumber                                int64     `json:"app_used_user_number" bson:"app_used_user_number"`
 	TryVanusActionNumber                             int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
 	SignInWithGithubActionNumber                     int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
 	SignInWithGoogleActionNumber                     int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
@@ -227,6 +241,23 @@ type Daily struct {
 	ShopifyToOutlookWithNewOrderActionNumber         int64     `json:"shopify_to_outlook_with_new_order_action_number" bson:"shopify_to_outlook_with_new_order_action_number"`
 	ShopifyToSlackWithNewOrderActionNumber           int64     `json:"shopify_to_slack_with_new_order_action_number" bson:"shopify_to_slack_with_new_order_action_number"`
 	ShopifyToSlackWithCancelOrderActionNumber        int64     `json:"shopify_to_slack_with_cancel_order_action_number" bson:"shopify_to_slack_with_cancel_order_action_number"`
+}
+
+type DailyStatsOfGithubLandingPageActionNumber struct {
+	Date                                        time.Time `json:"date" bson:"date"`
+	Tag                                         string    `json:"tag" bson:"tag"`
+	TryVanusActionNumber                        int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
+	SignInWithGithubActionNumber                int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
+	SignInWithGoogleActionNumber                int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
+	SignInWithMicrosoftActionNumber             int64     `json:"sign_in_with_microsoft_action_number" bson:"sign_in_with_microsoft_action_number"`
+	ContactUsActionNumber                       int64     `json:"contact_us_action_number" bson:"contact_us_action_number"`
+	GithubToSlackWithIssueActionNumber          int64     `json:"github_to_slack_with_issue_action_number" bson:"github_to_slack_with_issue_action_number"`
+	GithubToSlackWithOpenedPRActionNumber       int64     `json:"github_to_slack_with_opened_pr_action_number" bson:"github_to_slack_with_opened_pr_action_number"`
+	GithubToFeishuWithStarActionNumber          int64     `json:"github_to_feishu_with_star_action_number" bson:"github_to_feishu_with_star_action_number"`
+	GithubToFeishuWithIssueCommentActionNumber  int64     `json:"github_to_feishu_with_issue_comment_action_number" bson:"github_to_feishu_with_issue_comment_action_number"`
+	GithubToGoogleSheetsWithIssueActionNumber   int64     `json:"github_to_google_sheets_with_issue_action_number" bson:"github_to_google_sheets_with_issue_action_number"`
+	GithubToDiscordWithIssueCommentActionNumber int64     `json:"github_to_discord_with_issue_comment_action_number" bson:"github_to_discord_with_issue_comment_action_number"`
+	GithubToDiscordWithOpenedPRActionNumber     int64     `json:"github_to_discord_with_opened_pr_action_number" bson:"github_to_discord_with_opened_pr_action_number"`
 }
 
 type ActiveUserNumber struct {
@@ -255,4 +286,20 @@ func NewPayment() *Payment {
 	return &Payment{
 		Amount: &PaymentAmount{},
 	}
+}
+
+func (daily *DailyStatsOfShopifyLandingPageActionNumber) TotalCount() int64 {
+	return daily.TryVanusActionNumber + daily.SignInWithGithubActionNumber + daily.SignInWithGoogleActionNumber + daily.SignInWithMicrosoftActionNumber + daily.ContactUsActionNumber + daily.ShopifyToGoogleSheetsWithCancelOrderActionNumber + daily.ShopifyToGoogleSheetsWithNewOrderActionNumber + daily.ShopifyToMailChimpActionNumber + daily.ShopifyToMySQLActionNumber + daily.ShopifyToOutlookWithNewOrderActionNumber + daily.ShopifyToOutlookWithWelcomeCustomerActionNumber + daily.ShopifyToSlackWithCancelOrderActionNumber + daily.ShopifyToSlackWithNewOrderActionNumber
+}
+
+func (daily *DailyStatsOfShopifyLandingPageActionNumber) TriedCount() int64 {
+	return daily.TryVanusActionNumber + daily.ShopifyToGoogleSheetsWithCancelOrderActionNumber + daily.ShopifyToGoogleSheetsWithNewOrderActionNumber + daily.ShopifyToMailChimpActionNumber + daily.ShopifyToMySQLActionNumber + daily.ShopifyToOutlookWithNewOrderActionNumber + daily.ShopifyToOutlookWithWelcomeCustomerActionNumber + daily.ShopifyToSlackWithCancelOrderActionNumber + daily.ShopifyToSlackWithNewOrderActionNumber
+}
+
+func (daily *DailyStatsOfGithubLandingPageActionNumber) TotalCount() int64 {
+	return daily.TryVanusActionNumber + daily.SignInWithGithubActionNumber + daily.SignInWithGoogleActionNumber + daily.SignInWithMicrosoftActionNumber + daily.ContactUsActionNumber + daily.GithubToDiscordWithIssueCommentActionNumber + daily.GithubToDiscordWithOpenedPRActionNumber + daily.GithubToFeishuWithIssueCommentActionNumber + daily.GithubToFeishuWithStarActionNumber + daily.GithubToGoogleSheetsWithIssueActionNumber + daily.GithubToSlackWithIssueActionNumber + daily.GithubToSlackWithOpenedPRActionNumber
+}
+
+func (daily *DailyStatsOfGithubLandingPageActionNumber) TriedCount() int64 {
+	return daily.TryVanusActionNumber + daily.GithubToDiscordWithIssueCommentActionNumber + daily.GithubToDiscordWithOpenedPRActionNumber + daily.GithubToFeishuWithIssueCommentActionNumber + daily.GithubToFeishuWithStarActionNumber + daily.GithubToGoogleSheetsWithIssueActionNumber + daily.GithubToSlackWithIssueActionNumber + daily.GithubToSlackWithOpenedPRActionNumber
 }

@@ -17,8 +17,25 @@ import (
 )
 
 const (
-	BatchSize                = 2000
-	DatabaseOfUserStatistics = "vanus-user-statistics"
+	BatchSize                                         = 2000
+	DatabaseOfUserStatistics                          = "vanus-user-statistics"
+	UserActionOfShopifyLandingPage                    = "user_action_of_shopify_landing_page"
+	UserActionOfGithubLandingPage                     = "user_action_of_github_landing_page"
+	TemplateOfShopifyWebhookToGoogleSheets_20231023_1 = "shopify-webhook-google-sheets-20231023_1"
+	TemplateOfShopifyWebhookToGoogleSheets_20231023_2 = "shopify-webhook-google-sheets-20231023_2"
+	TemplateOfShopifyWebhookToMailchimp_20231020_2    = "shopify-webhook-mailchimp-20231020_2"
+	TemplateOfShopifyWebhookToMySQL_20231023_3        = "shopify-webhook-mysql-20231023_3"
+	TemplateOfShopifyWebhookToOutlook_20231023_4      = "shopify-webhook-outlook-20231023_4"
+	TemplateOfShopifyWebhookToOutlook_20231023_5      = "shopify-webhook-outlook-20231023_5"
+	TemplateOfShopifyWebhookToSlack_20231023_6        = "shopify-webhook-slack-20231023_6"
+	TemplateOfShopifyWebhookToSlack_20231023_7        = "shopify-webhook-slack-20231023_7"
+	TemplateOfGithubToSlack_20230308_6                = "github-slack-20230308_6"
+	TemplateOfGithubToSlack_20230316_3                = "github-slack-20230316_3"
+	TemplateOfGithubToFeishu_20230306_1               = "github-feishu-20230306_1"
+	TemplateOfGithubToFeishu_20230307_3               = "github-feishu-20230307_3"
+	TemplateOfGithubToGoogleSheets_20230309_7         = "github-google-sheets-20230309_7"
+	TemplateOfGithubToDiscord_20230320_3              = "github-discord-20230320_3"
+	TemplateOfGithubToDiscord_20230321_1              = "github-discord-20230321_1"
 )
 
 type StatService struct {
@@ -153,15 +170,15 @@ func (ss *StatService) rangeDailyStat(ctx context.Context, date time.Time) error
 	defer ss.wg.Done()
 	daily := date
 	for {
-		err := ss.dailyUserNumStat(ctx, daily)
+		err := ss.dailyStatOfUserNumber(ctx, daily)
 		if err != nil {
 			return err
 		}
-		err = ss.dailyUserActionStat(ctx, daily)
+		err = ss.dailyStatOfShopifyLandingPageActionNumber(ctx, daily)
 		if err != nil {
 			return err
 		}
-		err = ss.dailyUserActionOfShopifyStat(ctx, daily)
+		err = ss.dailyStatOfGithubLandingPageActionNumber(ctx, daily)
 		if err != nil {
 			return err
 		}
@@ -179,7 +196,7 @@ func (ss *StatService) rangeDailyStat(ctx context.Context, date time.Time) error
 	return nil
 }
 
-func (ss *StatService) dailyUserNumStat(ctx context.Context, date time.Time) error {
+func (ss *StatService) dailyStatOfUserNumber(ctx context.Context, date time.Time) error {
 	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	endAt := startAt.AddDate(0, 0, 1)
 	registerUserNumber, err := ss.GetRegisterUserNumber(ctx, startAt, endAt)
@@ -206,7 +223,7 @@ func (ss *StatService) dailyUserNumStat(ctx context.Context, date time.Time) err
 	if err != nil {
 		return err
 	}
-	daily := &models.Daily{
+	daily := &models.DailyStatsOfUserNumber{
 		Date:                        startAt,
 		Tag:                         "user_number",
 		RegisterUserNumber:          registerUserNumber,
@@ -216,11 +233,6 @@ func (ss *StatService) dailyUserNumStat(ctx context.Context, date time.Time) err
 		ConnectionUsedUserNumber:    cnUsedUserNumber,
 		AppUsedUserNumber:           appUsedUserNumber,
 	}
-	// _, err = ss.dailyStatColl.InsertOne(ctx, daily)
-	// if err != nil {
-	// 	log.Error(ctx).Err(err).Msg("failed to insert daily stat")
-	// 	return err
-	// }
 	query := bson.M{
 		"date": startAt,
 		"tag":  "user_number",
@@ -237,98 +249,72 @@ func (ss *StatService) dailyUserNumStat(ctx context.Context, date time.Time) err
 	return nil
 }
 
-func (ss *StatService) dailyUserActionStat(ctx context.Context, date time.Time) error {
+func (ss *StatService) dailyStatOfShopifyLandingPageActionNumber(ctx context.Context, date time.Time) error {
 	if date.Before(time.Date(2023, 10, 26, 0, 0, 0, 0, time.UTC)) {
 		return nil
 	}
 	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	endAt := startAt.AddDate(0, 0, 1)
-	tryVanusActionNumber, err := ss.GetTryVanusActionNumber(ctx, startAt, endAt)
+	tryVanusActionNumber, err := ss.GetTryVanusActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage)
 	if err != nil {
 		return err
 	}
-	signInWithGithubActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, "github-auth")
+	signInWithGithubActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, "github-auth")
 	if err != nil {
 		return err
 	}
-	signInWithGoogleActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, "google-auth")
+	signInWithGoogleActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, "google-auth")
 	if err != nil {
 		return err
 	}
-	signInWithMicrosoftActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, "microsoft-auth")
+	signInWithMicrosoftActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, "microsoft-auth")
 	if err != nil {
 		return err
 	}
-	ContactUsActionNumber, err := ss.GetContactUsActionNumber(ctx, startAt, endAt)
+	ContactUsActionNumber, err := ss.GetContactUsActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage)
 	if err != nil {
 		return err
 	}
-	daily := &models.Daily{
+	num1, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToGoogleSheets_20231023_1)
+	if err != nil {
+		return err
+	}
+	num2, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToGoogleSheets_20231023_2)
+	if err != nil {
+		return err
+	}
+	num3, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToMailchimp_20231020_2)
+	if err != nil {
+		return err
+	}
+	num4, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToMySQL_20231023_3)
+	if err != nil {
+		return err
+	}
+	num5, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToOutlook_20231023_4)
+	if err != nil {
+		return err
+	}
+	num6, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToOutlook_20231023_5)
+	if err != nil {
+		return err
+	}
+	num7, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToSlack_20231023_6)
+	if err != nil {
+		return err
+	}
+	num8, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage, TemplateOfShopifyWebhookToSlack_20231023_7)
+	if err != nil {
+		return err
+	}
+	daily := &models.DailyStatsOfShopifyLandingPageActionNumber{
 		Date:                            startAt,
-		Tag:                             "user_action",
+		Tag:                             UserActionOfShopifyLandingPage,
 		TryVanusActionNumber:            tryVanusActionNumber,
 		SignInWithGithubActionNumber:    signInWithGithubActionNumber,
 		SignInWithGoogleActionNumber:    signInWithGoogleActionNumber,
 		SignInWithMicrosoftActionNumber: signInWithMicrosoftActionNumber,
 		ContactUsActionNumber:           ContactUsActionNumber,
-	}
-	query := bson.M{
-		"date": startAt,
-		"tag":  "user_action",
-	}
-	opts := &options.ReplaceOptions{
-		Upsert: utils.PtrBool(true),
-	}
-	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
-	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to insert daily user action stat")
-		return err
-	}
-	// log.Info(ctx).Any("date", startAt).Msg("finished daily user action stat")
-	return nil
-}
-
-func (ss *StatService) dailyUserActionOfShopifyStat(ctx context.Context, date time.Time) error {
-	if date.Before(time.Date(2023, 10, 26, 0, 0, 0, 0, time.UTC)) {
-		return nil
-	}
-	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-	endAt := startAt.AddDate(0, 0, 1)
-	num1, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-google-sheets-20231023_1")
-	if err != nil {
-		return err
-	}
-	num2, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-google-sheets-20231023_2")
-	if err != nil {
-		return err
-	}
-	num3, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-mailchimp-20231020_2")
-	if err != nil {
-		return err
-	}
-	num4, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-mysql-20231023_3")
-	if err != nil {
-		return err
-	}
-	num5, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-outlook-20231023_4")
-	if err != nil {
-		return err
-	}
-	num6, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-outlook-20231023_5")
-	if err != nil {
-		return err
-	}
-	num7, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-slack-20231023_6")
-	if err != nil {
-		return err
-	}
-	num8, err := ss.GetShopifyTryItActionNumber(ctx, startAt, endAt, "shopify-webhook-slack-20231023_7")
-	if err != nil {
-		return err
-	}
-	daily := &models.Daily{
-		Date: startAt,
-		Tag:  "shopify",
 		ShopifyToGoogleSheetsWithNewOrderActionNumber:    num1,
 		ShopifyToGoogleSheetsWithCancelOrderActionNumber: num2,
 		ShopifyToMailChimpActionNumber:                   num3,
@@ -340,14 +326,100 @@ func (ss *StatService) dailyUserActionOfShopifyStat(ctx context.Context, date ti
 	}
 	query := bson.M{
 		"date": startAt,
-		"tag":  "shopify",
+		"tag":  UserActionOfShopifyLandingPage,
 	}
 	opts := &options.ReplaceOptions{
 		Upsert: utils.PtrBool(true),
 	}
 	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
 	if err != nil {
-		log.Error(ctx).Err(err).Msg("failed to insert daily user action of shopify stat")
+		log.Error(ctx).Err(err).Msg("failed to insert daily action of shopify landing page")
+		return err
+	}
+	// log.Info(ctx).Any("date", startAt).Msg("finished daily user action of shopify stat")
+	return nil
+}
+
+func (ss *StatService) dailyStatOfGithubLandingPageActionNumber(ctx context.Context, date time.Time) error {
+	if date.Before(time.Date(2023, 10, 26, 0, 0, 0, 0, time.UTC)) {
+		return nil
+	}
+	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endAt := startAt.AddDate(0, 0, 1)
+	tryVanusActionNumber, err := ss.GetTryVanusActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage)
+	if err != nil {
+		return err
+	}
+	signInWithGithubActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, "github-auth")
+	if err != nil {
+		return err
+	}
+	signInWithGoogleActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, "google-auth")
+	if err != nil {
+		return err
+	}
+	signInWithMicrosoftActionNumber, err := ss.GetSignInActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, "microsoft-auth")
+	if err != nil {
+		return err
+	}
+	ContactUsActionNumber, err := ss.GetContactUsActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage)
+	if err != nil {
+		return err
+	}
+	num1, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToSlack_20230308_6)
+	if err != nil {
+		return err
+	}
+	num2, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToSlack_20230316_3)
+	if err != nil {
+		return err
+	}
+	num3, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToFeishu_20230306_1)
+	if err != nil {
+		return err
+	}
+	num4, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToFeishu_20230307_3)
+	if err != nil {
+		return err
+	}
+	num5, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToGoogleSheets_20230309_7)
+	if err != nil {
+		return err
+	}
+	num6, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToDiscord_20230320_3)
+	if err != nil {
+		return err
+	}
+	num7, err := ss.GetTemplateTryItActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage, TemplateOfGithubToDiscord_20230321_1)
+	if err != nil {
+		return err
+	}
+	daily := &models.DailyStatsOfGithubLandingPageActionNumber{
+		Date:                                        startAt,
+		Tag:                                         UserActionOfGithubLandingPage,
+		TryVanusActionNumber:                        tryVanusActionNumber,
+		SignInWithGithubActionNumber:                signInWithGithubActionNumber,
+		SignInWithGoogleActionNumber:                signInWithGoogleActionNumber,
+		SignInWithMicrosoftActionNumber:             signInWithMicrosoftActionNumber,
+		ContactUsActionNumber:                       ContactUsActionNumber,
+		GithubToSlackWithIssueActionNumber:          num1,
+		GithubToSlackWithOpenedPRActionNumber:       num2,
+		GithubToFeishuWithStarActionNumber:          num3,
+		GithubToFeishuWithIssueCommentActionNumber:  num4,
+		GithubToGoogleSheetsWithIssueActionNumber:   num5,
+		GithubToDiscordWithIssueCommentActionNumber: num6,
+		GithubToDiscordWithOpenedPRActionNumber:     num7,
+	}
+	query := bson.M{
+		"date": startAt,
+		"tag":  UserActionOfGithubLandingPage,
+	}
+	opts := &options.ReplaceOptions{
+		Upsert: utils.PtrBool(true),
+	}
+	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to insert daily action of github landing page")
 		return err
 	}
 	// log.Info(ctx).Any("date", startAt).Msg("finished daily user action of shopify stat")
@@ -580,12 +652,18 @@ func (ss *StatService) GetAppUsedUserNumber(ctx context.Context, start, end time
 	return cnt, nil
 }
 
-func (ss *StatService) GetTryVanusActionNumber(ctx context.Context, start, end time.Time) (int64, error) {
+func (ss *StatService) GetTryVanusActionNumber(ctx context.Context, start, end time.Time, tag string) (int64, error) {
 	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
 		return 517, nil
 	}
 	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
 		return 427, nil
+	}
+	from := ""
+	if tag == UserActionOfShopifyLandingPage {
+		from = "https://www.vanus.ai/connectors/shopify"
+	} else if tag == UserActionOfGithubLandingPage {
+		from = "https://www.vanus.ai/connectors/github"
 	}
 	query := bson.M{
 		"time": bson.M{
@@ -594,6 +672,9 @@ func (ss *StatService) GetTryVanusActionNumber(ctx context.Context, start, end t
 		},
 		"action": "redirect_login",
 		"source": "www.vanus.ai",
+		"payload.from": bson.M{
+			"$regex": from,
+		},
 		"payload.extra": bson.M{
 			"$exists": false,
 		},
@@ -605,20 +686,29 @@ func (ss *StatService) GetTryVanusActionNumber(ctx context.Context, start, end t
 	return cnt, nil
 }
 
-func (ss *StatService) GetSignInActionNumber(ctx context.Context, start, end time.Time, auth string) (int64, error) {
+func (ss *StatService) GetSignInActionNumber(ctx context.Context, start, end time.Time, tag string, auth string) (int64, error) {
 	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
 		return 517, nil
 	}
 	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
 		return 427, nil
 	}
+	from := ""
+	if tag == UserActionOfShopifyLandingPage {
+		from = "https://www.vanus.ai/connectors/shopify"
+	} else if tag == UserActionOfGithubLandingPage {
+		from = "https://www.vanus.ai/connectors/github"
+	}
 	query := bson.M{
 		"time": bson.M{
 			"$gte": start.Format(time.RFC3339),
 			"$lte": end.Format(time.RFC3339),
 		},
-		"action":        "redirect_login",
-		"source":        "www.vanus.ai",
+		"action": "redirect_login",
+		"source": "www.vanus.ai",
+		"payload.from": bson.M{
+			"$regex": from,
+		},
 		"payload.extra": auth,
 	}
 	cnt, err := ss.actionColl.CountDocuments(ctx, query)
@@ -628,12 +718,18 @@ func (ss *StatService) GetSignInActionNumber(ctx context.Context, start, end tim
 	return cnt, nil
 }
 
-func (ss *StatService) GetContactUsActionNumber(ctx context.Context, start, end time.Time) (int64, error) {
+func (ss *StatService) GetContactUsActionNumber(ctx context.Context, start, end time.Time, tag string) (int64, error) {
 	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
 		return 517, nil
 	}
 	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
 		return 427, nil
+	}
+	from := ""
+	if tag == UserActionOfShopifyLandingPage {
+		from = "https://www.vanus.ai/connectors/shopify"
+	} else if tag == UserActionOfGithubLandingPage {
+		from = "https://www.vanus.ai/connectors/github"
 	}
 	query := bson.M{
 		"time": bson.M{
@@ -641,6 +737,9 @@ func (ss *StatService) GetContactUsActionNumber(ctx context.Context, start, end 
 			"$lte": end.Format(time.RFC3339),
 		},
 		"action": "contact",
+		"payload.from": bson.M{
+			"$regex": from,
+		},
 		"source": "www.vanus.ai",
 	}
 	cnt, err := ss.actionColl.CountDocuments(ctx, query)
@@ -650,22 +749,30 @@ func (ss *StatService) GetContactUsActionNumber(ctx context.Context, start, end 
 	return cnt, nil
 }
 
-func (ss *StatService) GetShopifyTryItActionNumber(ctx context.Context, start, end time.Time, template string) (int64, error) {
+func (ss *StatService) GetTemplateTryItActionNumber(ctx context.Context, start, end time.Time, tag string, template string) (int64, error) {
 	if start == time.Date(2023, 9, 14, 0, 0, 0, 0, time.UTC) {
 		return 517, nil
 	}
 	if start == time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC) {
 		return 427, nil
 	}
+	from := ""
+	if tag == UserActionOfShopifyLandingPage {
+		from = "https://www.vanus.ai/connectors/shopify"
+	} else if tag == UserActionOfGithubLandingPage {
+		from = "https://www.vanus.ai/connectors/github"
+	}
 	query := bson.M{
 		"time": bson.M{
 			"$gte": start.Format(time.RFC3339),
 			"$lte": end.Format(time.RFC3339),
 		},
-		"action":       "create_connection_from_landing",
-		"source":       "www.vanus.ai",
-		"payload.from": "https://www.vanus.ai/connectors/shopify",
-		"template":     template,
+		"action": "create_connection_from_landing",
+		"source": "www.vanus.ai",
+		"payload.from": bson.M{
+			"$regex": from,
+		},
+		"template": template,
 	}
 	cnt, err := ss.actionColl.CountDocuments(ctx, query)
 	if err != nil {
