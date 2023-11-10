@@ -858,6 +858,8 @@ func (ss *StatService) rangeUserStat(ctx context.Context, start int64, end int64
 			CompanyName:  user.CompanyName,
 			CompanyEmail: user.CompanyEmail,
 			Industry:     ss.GetUserIndustry(ctx, user),
+			Ref:          user.Ref,
+			RefHost:      user.RefHost,
 			Class:        class,
 			Bills:        bills,
 			Usages:       usage,

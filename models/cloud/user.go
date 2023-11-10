@@ -15,4 +15,6 @@ type User struct {
 	CompanyName   string                 `json:"company_name" bson:"company_name"`
 	Industry      string                 `json:"industry" bson:"industry"`
 	IndustryExtra string                 `json:"industry_extra" bson:"industry_extra"`
+	Ref           string                 `json:"ref" bson:"ref"`
+	RefHost       string                 `json:"ref_host" bson:"ref_host"`
 }
