@@ -584,7 +584,6 @@ func (as *ActionService) listSpecifiedActionTypeUsers(ctx context.Context, pg ap
 
 // 用于落地页用户行为次数统计，包括总的try vanus和shopify各个模版的try it
 func (as *ActionService) listDailyActionNumber(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Str("tag", pg.Tag).Msg("===jk0===")
 	switch pg.Tag {
 	case "user_conversion_of_shopify_landing_page":
 		return as.conversionOfShopifyLandingPage(ctx, pg, opts)
@@ -642,7 +641,7 @@ func (as *ActionService) conversionOfShopifyLandingPage(ctx context.Context, pg 
 		conversion := &models.UserConversion{
 			Date:       daily.Date,
 			Tag:        daily.Tag,
-			Entered:    daily.TotalCount(),
+			Entered:    daily.UniqueVisitorNumber,
 			Tried:      daily.TriedCount(),
 			Registered: int64(len(users)),
 			Created:    cnt,
@@ -698,7 +697,7 @@ func (as *ActionService) conversionOfGithubLandingPage(ctx context.Context, pg a
 		conversion := &models.UserConversion{
 			Date:       daily.Date,
 			Tag:        daily.Tag,
-			Entered:    daily.TotalCount(),
+			Entered:    daily.UniqueVisitorNumber,
 			Tried:      daily.TriedCount(),
 			Registered: int64(len(users)),
 			Created:    cnt,

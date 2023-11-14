@@ -230,6 +230,7 @@ type DailyStatsOfUserNumber struct {
 type DailyStatsOfShopifyLandingPageActionNumber struct {
 	Date                                             time.Time `json:"date" bson:"date"`
 	Tag                                              string    `json:"tag" bson:"tag"`
+	UniqueVisitorNumber                              int64     `json:"unique_visitor_number" bson:"unique_visitor_number"`
 	TryVanusActionNumber                             int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
 	SignInWithGithubActionNumber                     int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
 	SignInWithGoogleActionNumber                     int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
@@ -248,6 +249,7 @@ type DailyStatsOfShopifyLandingPageActionNumber struct {
 type DailyStatsOfGithubLandingPageActionNumber struct {
 	Date                                        time.Time `json:"date" bson:"date"`
 	Tag                                         string    `json:"tag" bson:"tag"`
+	UniqueVisitorNumber                         int64     `json:"unique_visitor_number" bson:"unique_visitor_number"`
 	TryVanusActionNumber                        int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
 	SignInWithGithubActionNumber                int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
 	SignInWithGoogleActionNumber                int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
@@ -290,17 +292,17 @@ func NewPayment() *Payment {
 	}
 }
 
-func (daily *DailyStatsOfShopifyLandingPageActionNumber) TotalCount() int64 {
-	return daily.TryVanusActionNumber + daily.SignInWithGithubActionNumber + daily.SignInWithGoogleActionNumber + daily.SignInWithMicrosoftActionNumber + daily.ContactUsActionNumber + daily.ShopifyToGoogleSheetsWithCancelOrderActionNumber + daily.ShopifyToGoogleSheetsWithNewOrderActionNumber + daily.ShopifyToMailChimpActionNumber + daily.ShopifyToMySQLActionNumber + daily.ShopifyToOutlookWithNewOrderActionNumber + daily.ShopifyToOutlookWithWelcomeCustomerActionNumber + daily.ShopifyToSlackWithCancelOrderActionNumber + daily.ShopifyToSlackWithNewOrderActionNumber
-}
+// func (daily *DailyStatsOfShopifyLandingPageActionNumber) TotalCount() int64 {
+// 	return daily.TryVanusActionNumber + daily.SignInWithGithubActionNumber + daily.SignInWithGoogleActionNumber + daily.SignInWithMicrosoftActionNumber + daily.ContactUsActionNumber + daily.ShopifyToGoogleSheetsWithCancelOrderActionNumber + daily.ShopifyToGoogleSheetsWithNewOrderActionNumber + daily.ShopifyToMailChimpActionNumber + daily.ShopifyToMySQLActionNumber + daily.ShopifyToOutlookWithNewOrderActionNumber + daily.ShopifyToOutlookWithWelcomeCustomerActionNumber + daily.ShopifyToSlackWithCancelOrderActionNumber + daily.ShopifyToSlackWithNewOrderActionNumber
+// }
 
 func (daily *DailyStatsOfShopifyLandingPageActionNumber) TriedCount() int64 {
 	return daily.TryVanusActionNumber + daily.ShopifyToGoogleSheetsWithCancelOrderActionNumber + daily.ShopifyToGoogleSheetsWithNewOrderActionNumber + daily.ShopifyToMailChimpActionNumber + daily.ShopifyToMySQLActionNumber + daily.ShopifyToOutlookWithNewOrderActionNumber + daily.ShopifyToOutlookWithWelcomeCustomerActionNumber + daily.ShopifyToSlackWithCancelOrderActionNumber + daily.ShopifyToSlackWithNewOrderActionNumber
 }
 
-func (daily *DailyStatsOfGithubLandingPageActionNumber) TotalCount() int64 {
-	return daily.TryVanusActionNumber + daily.SignInWithGithubActionNumber + daily.SignInWithGoogleActionNumber + daily.SignInWithMicrosoftActionNumber + daily.ContactUsActionNumber + daily.GithubToDiscordWithIssueCommentActionNumber + daily.GithubToDiscordWithOpenedPRActionNumber + daily.GithubToFeishuWithIssueCommentActionNumber + daily.GithubToFeishuWithStarActionNumber + daily.GithubToGoogleSheetsWithIssueActionNumber + daily.GithubToSlackWithIssueActionNumber + daily.GithubToSlackWithOpenedPRActionNumber
-}
+// func (daily *DailyStatsOfGithubLandingPageActionNumber) TotalCount() int64 {
+// 	return daily.TryVanusActionNumber + daily.SignInWithGithubActionNumber + daily.SignInWithGoogleActionNumber + daily.SignInWithMicrosoftActionNumber + daily.ContactUsActionNumber + daily.GithubToDiscordWithIssueCommentActionNumber + daily.GithubToDiscordWithOpenedPRActionNumber + daily.GithubToFeishuWithIssueCommentActionNumber + daily.GithubToFeishuWithStarActionNumber + daily.GithubToGoogleSheetsWithIssueActionNumber + daily.GithubToSlackWithIssueActionNumber + daily.GithubToSlackWithOpenedPRActionNumber
+// }
 
 func (daily *DailyStatsOfGithubLandingPageActionNumber) TriedCount() int64 {
 	return daily.TryVanusActionNumber + daily.GithubToDiscordWithIssueCommentActionNumber + daily.GithubToDiscordWithOpenedPRActionNumber + daily.GithubToFeishuWithIssueCommentActionNumber + daily.GithubToFeishuWithStarActionNumber + daily.GithubToGoogleSheetsWithIssueActionNumber + daily.GithubToSlackWithIssueActionNumber + daily.GithubToSlackWithOpenedPRActionNumber

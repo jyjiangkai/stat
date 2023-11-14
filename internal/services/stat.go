@@ -13,6 +13,7 @@ import (
 	"github.com/jyjiangkai/stat/log"
 	"github.com/jyjiangkai/stat/models"
 	"github.com/jyjiangkai/stat/models/cloud"
+	"github.com/jyjiangkai/stat/plausible"
 	"github.com/jyjiangkai/stat/utils"
 )
 
@@ -255,6 +256,10 @@ func (ss *StatService) dailyStatOfShopifyLandingPageActionNumber(ctx context.Con
 	}
 	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	endAt := startAt.AddDate(0, 0, 1)
+	visitors, err := plausible.GetVisitors(ctx, "vanus.ai", "/connectors/shopify", startAt.Format("2006-01-02"))
+	if err != nil {
+		return err
+	}
 	tryVanusActionNumber, err := ss.GetTryVanusActionNumber(ctx, startAt, endAt, UserActionOfShopifyLandingPage)
 	if err != nil {
 		return err
@@ -307,9 +312,11 @@ func (ss *StatService) dailyStatOfShopifyLandingPageActionNumber(ctx context.Con
 	if err != nil {
 		return err
 	}
+
 	daily := &models.DailyStatsOfShopifyLandingPageActionNumber{
 		Date:                            startAt,
 		Tag:                             UserActionOfShopifyLandingPage,
+		UniqueVisitorNumber:             visitors,
 		TryVanusActionNumber:            tryVanusActionNumber,
 		SignInWithGithubActionNumber:    signInWithGithubActionNumber,
 		SignInWithGoogleActionNumber:    signInWithGoogleActionNumber,
@@ -346,6 +353,10 @@ func (ss *StatService) dailyStatOfGithubLandingPageActionNumber(ctx context.Cont
 	}
 	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	endAt := startAt.AddDate(0, 0, 1)
+	visitors, err := plausible.GetVisitors(ctx, "vanus.ai", "/connectors/github", startAt.Format("2006-01-02"))
+	if err != nil {
+		return err
+	}
 	tryVanusActionNumber, err := ss.GetTryVanusActionNumber(ctx, startAt, endAt, UserActionOfGithubLandingPage)
 	if err != nil {
 		return err
@@ -397,6 +408,7 @@ func (ss *StatService) dailyStatOfGithubLandingPageActionNumber(ctx context.Cont
 	daily := &models.DailyStatsOfGithubLandingPageActionNumber{
 		Date:                                        startAt,
 		Tag:                                         UserActionOfGithubLandingPage,
+		UniqueVisitorNumber:                         visitors,
 		TryVanusActionNumber:                        tryVanusActionNumber,
 		SignInWithGithubActionNumber:                signInWithGithubActionNumber,
 		SignInWithGoogleActionNumber:                signInWithGoogleActionNumber,

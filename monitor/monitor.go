@@ -43,10 +43,7 @@ func SendAlarm(ctx context.Context, message string) error {
 		Message: message,
 	}
 	resp, err := client.R().SetBody(req).Post(cfg.WebhookUrl)
-	if err == handleHTTPResponse(ctx, resp, err) {
-		return err
-	}
-	return nil
+	return handleHTTPResponse(ctx, resp, err)
 }
 
 func handleHTTPResponse(ctx context.Context, res *resty.Response, err error) error {

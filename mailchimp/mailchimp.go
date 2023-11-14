@@ -46,10 +46,7 @@ func AddMember(ctx context.Context, email string, tags []string) error {
 		Tags:  tags,
 	}
 	resp, err := client.R().SetBody(req).Post(cfg.WebhookUrl)
-	if err == handleHTTPResponse(ctx, resp, err) {
-		return err
-	}
-	return nil
+	return handleHTTPResponse(ctx, resp, err)
 }
 
 func ValidateEmail(email string) bool {
