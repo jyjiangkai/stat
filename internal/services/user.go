@@ -19,16 +19,18 @@ import (
 )
 
 const (
-	UserTypeOfRegister                  = "register"
-	UserTypeOfLogin                     = "login"
-	UserTypeOfCreated                   = "created"
-	UserTypeOfUsed                      = "used"
-	UserTypeOfConnectionTemplateCreated = "connection_template_created"
-	UserTypeOfPremium                   = "premium"
-	UserTypeOfNoKnownledgeBase          = "no_knowledge_base"
-	UserTypeOfHighKnownledgeBase        = "high_knowledge_base"
-	UserTypeOfCohort                    = "cohort"
-	UserTypeOfDailyUserNumber           = "daily_user_number"
+	UserTypeOfRegister                       = "register"
+	UserTypeOfLogin                          = "login"
+	UserTypeOfCreated                        = "created"
+	UserTypeOfUsed                           = "used"
+	UserTypeOfRegisterFromShopifyLandingPage = "register_from_shopify_landing_page"
+	UserTypeOfRegisterFromGithubLandingPage  = "register_from_github_landing_page"
+	UserTypeOfConnectionTemplateCreated      = "connection_template_created"
+	UserTypeOfPremium                        = "premium"
+	UserTypeOfNoKnownledgeBase               = "no_knowledge_base"
+	UserTypeOfHighKnownledgeBase             = "high_knowledge_base"
+	UserTypeOfCohort                         = "cohort"
+	UserTypeOfDailyUserNumber                = "daily_user_number"
 )
 
 var (
@@ -104,13 +106,12 @@ func (us *UserService) Start() error {
 func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, now time.Time) error {
 	log.Info(ctx).Msgf("start stat weekly no knownledge base user at: %+v\n", now)
 	pg := api.Page{}
-	rg := api.Range{}
-	filters := api.FilterStack{}
+	req := api.NewRequest()
 	opts := &api.ListOptions{
 		KindSelector: "ai",
 		TypeSelector: UserTypeOfNoKnownledgeBase,
 	}
-	result, err := us.List(ctx, pg, rg, filters, opts)
+	result, err := us.List(ctx, pg, req, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msgf("stat weekly no knownledge base user failed at %+v\n", now)
 		return err
@@ -145,13 +146,12 @@ func (us *UserService) weeklyNoKnownledgeBaseUserTracking(ctx context.Context, n
 func (us *UserService) weeklyHighKnownledgeBaseUserTracking(ctx context.Context, now time.Time) error {
 	log.Info(ctx).Msgf("start stat weekly high knownledge base user at: %+v\n", now)
 	pg := api.Page{}
-	rg := api.Range{}
-	filters := api.FilterStack{}
+	req := api.NewRequest()
 	opts := &api.ListOptions{
 		KindSelector: "ai",
 		TypeSelector: UserTypeOfHighKnownledgeBase,
 	}
-	result, err := us.List(ctx, pg, rg, filters, opts)
+	result, err := us.List(ctx, pg, req, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msgf("stat weekly high knownledge base user failed at %+v\n", now)
 		return err
@@ -187,13 +187,13 @@ func (us *UserService) Stop() error {
 	return nil
 }
 
-func (us *UserService) List(ctx context.Context, pg api.Page, rg api.Range, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("user service list api")
+func (us *UserService) List(ctx context.Context, pg api.Page, req api.Request, opts *api.ListOptions) (*api.ListResult, error) {
+	log.Info(ctx).Any("page", pg).Any("request", req).Any("opts", opts).Msg("user service list api")
 	switch opts.TypeSelector {
-	case UserTypeOfRegister, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed, UserTypeOfConnectionTemplateCreated:
-		return us.listSpecifiedUsers(ctx, pg, rg, filters, opts)
+	case UserTypeOfRegister, UserTypeOfRegisterFromShopifyLandingPage, UserTypeOfRegisterFromGithubLandingPage, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed, UserTypeOfConnectionTemplateCreated:
+		return us.listSpecifiedUsers(ctx, pg, req, opts)
 	case UserTypeOfPremium:
-		return us.listPremiumUsers(ctx, pg, filters, opts)
+		return us.listPremiumUsers(ctx, pg, req.FilterStack, opts)
 	case UserTypeOfNoKnownledgeBase:
 		return us.listNoKnownledgeBaseUsers(ctx, pg, opts)
 	case UserTypeOfHighKnownledgeBase:
@@ -203,7 +203,7 @@ func (us *UserService) List(ctx context.Context, pg api.Page, rg api.Range, filt
 	case UserTypeOfDailyUserNumber:
 		return us.listDailyUserNumber(ctx, pg, opts)
 	default:
-		return us.list(ctx, pg, filters, opts)
+		return us.list(ctx, pg, req.FilterStack, opts)
 	}
 }
 
@@ -351,7 +351,85 @@ func (us *UserService) listRegisterUsers(ctx context.Context, pg api.Page, rg ap
 	}, nil
 }
 
-func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, rg api.Range, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
+func (us *UserService) listRegisterFromLandingPageUsers(ctx context.Context, pg api.Page, filters api.FilterStack, ref, date string) (*api.ListResult, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+	)
+
+	if skip < 0 {
+		skip = 0
+	}
+
+	rg := api.Range{
+		Start: date,
+		End:   date,
+	}
+	start, end, err := us.getRangeTime(ctx, rg)
+	if err != nil {
+		return nil, err
+	}
+	query := addFilter(ctx, filters)
+	query["ref"] = ref
+	query["created_at"] = bson.M{
+		"$gte": start,
+		"$lte": end,
+	}
+	cnt, err := us.userColl.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+	if cnt <= skip {
+		return nil, api.ErrPageArgumentsTooLarge
+	}
+
+	pg.Total = cnt
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := us.userColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		user := &models.User{}
+		if err = cursor.Decode(user); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		list = append(list, user)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
+func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, req api.Request, opts *api.ListOptions) (*api.ListResult, error) {
 	var (
 		skip  = pg.PageNumber * pg.PageSize
 		limit = pg.PageSize
@@ -366,33 +444,37 @@ func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, rg a
 
 	switch opts.TypeSelector {
 	case UserTypeOfRegister:
-		return us.listRegisterUsers(ctx, pg, rg, filters, opts)
+		return us.listRegisterUsers(ctx, pg, req.Range, req.FilterStack, opts)
+	case UserTypeOfRegisterFromShopifyLandingPage:
+		return us.listRegisterFromLandingPageUsers(ctx, pg, req.FilterStack, "shopify-landing", req.Point.X)
+	case UserTypeOfRegisterFromGithubLandingPage:
+		return us.listRegisterFromLandingPageUsers(ctx, pg, req.FilterStack, "github-landing", req.Point.X)
 	case UserTypeOfLogin:
-		users, err = us.getLoginUsers(ctx, rg)
+		users, err = us.getLoginUsers(ctx, req.Range)
 		if err != nil {
 			log.Error(ctx).Err(err).Msg("failed to get login users")
 			return nil, err
 		}
 	case UserTypeOfCreated:
 		if opts.KindSelector == "connect" {
-			users, err = us.getConnectCreatedUsers(ctx, rg)
+			users, err = us.getConnectCreatedUsers(ctx, req.Range)
 			if err != nil {
 				return nil, err
 			}
 		} else if opts.KindSelector == "ai" {
-			users, err = us.getAICreatedUsers(ctx, rg)
+			users, err = us.getAICreatedUsers(ctx, req.Range)
 			if err != nil {
 				return nil, err
 			}
 		}
 	case UserTypeOfUsed:
 		if opts.KindSelector == "connect" {
-			users, err = us.getConnectUsedUsers(ctx, rg)
+			users, err = us.getConnectUsedUsers(ctx, req.Range)
 			if err != nil {
 				return nil, err
 			}
 		} else if opts.KindSelector == "ai" {
-			users, err = us.getAIUsedUsers(ctx, rg)
+			users, err = us.getAIUsedUsers(ctx, req.Range)
 			if err != nil {
 				return nil, err
 			}
@@ -409,7 +491,7 @@ func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, rg a
 		}, nil
 	}
 
-	query := addFilter(ctx, filters)
+	query := addFilter(ctx, req.FilterStack)
 	query["oidc_id"] = bson.M{
 		"$in": users,
 	}

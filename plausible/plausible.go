@@ -42,7 +42,6 @@ type Visitors struct {
 
 func init() {
 	once.Do(func() {
-		fmt.Println("init")
 		client = resty.New()
 	})
 }

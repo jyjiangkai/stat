@@ -61,7 +61,7 @@ func (uc *UserController) List(ctx *gin.Context) (any, error) {
 		KindSelector: kind,
 		TypeSelector: userType,
 	}
-	result, err := uc.svc.List(ctx, pg, req.Range, req.FilterStack, opts)
+	result, err := uc.svc.List(ctx, pg, req, opts)
 	if err != nil {
 		return nil, err
 	}
