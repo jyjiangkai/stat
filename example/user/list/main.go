@@ -42,7 +42,7 @@ func main() {
 		KindSelector: "connect",
 		TypeSelector: "marketing",
 	}
-	results, err := svc.List(ctx, pg, req.Range, req.FilterStack, opts)
+	results, err := svc.List(ctx, pg, req, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msg("failed to list user")
 		return

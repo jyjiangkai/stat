@@ -191,7 +191,7 @@ func (us *UserService) Stop() error {
 func (us *UserService) List(ctx context.Context, pg api.Page, req api.Request, opts *api.ListOptions) (*api.ListResult, error) {
 	log.Info(ctx).Any("page", pg).Any("request", req).Any("opts", opts).Msg("user service list api")
 	switch opts.TypeSelector {
-	case UserTypeOfRegister, UserTypeOfRegisterFromShopifyLandingPage, UserTypeOfRegisterFromGithubLandingPage, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed, UserTypeOfConnectionTemplateCreated:
+	case UserTypeOfRegister, UserTypeOfRegisterFromShopifyLandingPage, UserTypeOfRegisterFromGithubLandingPage, UserTypeOfRegisterFromAWSCampaignsPage, UserTypeOfLogin, UserTypeOfCreated, UserTypeOfUsed, UserTypeOfConnectionTemplateCreated:
 		return us.listSpecifiedUsers(ctx, pg, req, opts)
 	case UserTypeOfPremium:
 		return us.listPremiumUsers(ctx, pg, req.FilterStack, opts)

@@ -56,7 +56,7 @@ func (ac *ActionController) List(ctx *gin.Context) (any, error) {
 		KindSelector: kind,
 		TypeSelector: userType,
 	}
-	result, err := ac.svc.List(ctx, pg, req.FilterStack, opts)
+	result, err := ac.svc.List(ctx, pg, req, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +64,26 @@ func (ac *ActionController) List(ctx *gin.Context) (any, error) {
 }
 
 func (ac *ActionController) Get(ctx *gin.Context) (any, error) {
-	opts := &api.GetOptions{}
-	result, err := ac.svc.Get(ctx, ctx.Param(ParamOfUserOID), opts)
+	pg := api.Page{}
+	if err := ctx.BindQuery(&pg); err != nil {
+		return nil, api.ErrParsePaging
+	}
+	if pg.SortBy == "null" {
+		pg.SortBy = "time"
+	}
+	req := api.NewRequest()
+	if err := ctx.Bind(&req); err != nil {
+		log.Error(ctx).Err(err).Msg("failed to parse filting parameters")
+		// TODO(jiangkai): fix me
+		if !strings.Contains(err.Error(), "EOF") {
+			return nil, api.ErrParseFilting.WithError(err)
+		}
+	}
+	kind, _ := ctx.GetQuery(QueryOfUserKind)
+	opts := &api.GetOptions{
+		KindSelector: kind,
+	}
+	result, err := ac.svc.Get(ctx, pg, req, ctx.Param(ParamOfUserOID), opts)
 	if err != nil {
 		return nil, err
 	}

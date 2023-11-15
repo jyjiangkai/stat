@@ -45,7 +45,7 @@ func main() {
 		KindSelector: "ai",
 		TypeSelector: "marketing",
 	}
-	result, err := svc.List(ctx, pg, req.Range, req.FilterStack, opts)
+	result, err := svc.List(ctx, pg, req, opts)
 	if err != nil {
 		log.Error(ctx).Err(err).Msg("failed to list weekly marketing user")
 		return

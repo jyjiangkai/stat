@@ -213,19 +213,19 @@ func (as *ActionService) Stop() error {
 	return nil
 }
 
-func (as *ActionService) List(ctx context.Context, pg api.Page, filters api.FilterStack, opts *api.ListOptions) (*api.ListResult, error) {
-	log.Info(ctx).Any("page", pg).Any("filters", filters).Any("opts", opts).Msg("action service list api")
+func (as *ActionService) List(ctx context.Context, pg api.Page, req api.Request, opts *api.ListOptions) (*api.ListResult, error) {
+	log.Info(ctx).Any("page", pg).Any("req", req).Any("opts", opts).Msg("action service list api")
 	switch opts.TypeSelector {
 	case ConnectionTemplateCreatedNumber:
 		return as.listConnectionTemplateCreatedNumber(ctx, pg, opts)
 	case ConnectionTemplateCreated:
-		return as.listConnectionTemplateCreated(ctx, pg, filters, opts)
+		return as.listConnectionTemplateCreated(ctx, pg, req.FilterStack, opts)
 	case ActionType:
-		return as.listSpecifiedActionTypeUsers(ctx, pg, filters, opts)
+		return as.listSpecifiedActionTypeUsers(ctx, pg, req.FilterStack, opts)
 	case DailyActionNumber:
 		return as.listDailyActionNumber(ctx, pg, opts)
 	default:
-		return as.list(ctx, pg, filters, opts)
+		return as.list(ctx, pg, req.FilterStack, opts)
 	}
 }
 
@@ -896,16 +896,114 @@ func (as *ActionService) createdConnectionOfLandingPage(ctx context.Context, use
 	return cnt, nil
 }
 
-func (as *ActionService) Get(ctx context.Context, oid string, opts *api.GetOptions) (*models.UserDetail, error) {
-	return nil, nil
+func (as *ActionService) Get(ctx context.Context, pg api.Page, req api.Request, oid string, opts *api.GetOptions) (*api.ListResult, error) {
+	log.Info(ctx).Any("page", pg).Any("req", req).Str("oidc_id", oid).Any("opts", opts).Msg("action service get api")
+	return as.get(ctx, pg, req.FilterStack, oid, opts)
+}
+
+func (as *ActionService) get(ctx context.Context, pg api.Page, filters api.FilterStack, oid string, opts *api.GetOptions) (*api.ListResult, error) {
+	var (
+		skip  = pg.PageNumber * pg.PageSize
+		limit = pg.PageSize
+		sort  bson.M
+	)
+
+	if skip < 0 {
+		skip = 0
+	}
+
+	query := addActionFilter(ctx, filters)
+	query["usersub"] = oid
+	query["website"] = bson.M{"$ne": "https://ai.vanustest.com"}
+	log.Info(ctx).Any("query", query).Msg("show action get api query criteria")
+	cnt, err := as.actionColl.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return &api.ListResult{
+			List: []interface{}{},
+			P:    pg,
+		}, nil
+	}
+	if cnt <= skip {
+		return nil, api.ErrPageArgumentsTooLarge
+	}
+
+	pg.Total = cnt
+	if pg.Direction == "asc" {
+		sort = bson.M{pg.SortBy: 1}
+	} else if pg.Direction == "desc" {
+		sort = bson.M{pg.SortBy: -1}
+	} else {
+		sort = bson.M{pg.SortBy: -1}
+	}
+
+	opt := options.FindOptions{
+		Limit: &limit,
+		Skip:  &skip,
+		Sort:  sort,
+	}
+	cursor, err := as.actionColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				P: pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		action := &models.Action{}
+		if err = cursor.Decode(action); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		if action.Payload.AppID != "" {
+			if app, ok := as.appCache.Load(action.Payload.AppID); ok {
+				action.App = app.(*models.ActionApp)
+			} else {
+				id, _ := primitive.ObjectIDFromHex(action.Payload.AppID)
+				result := as.appColl.FindOne(ctx, bson.M{"_id": id})
+				if result.Err() != nil {
+					return nil, db.HandleDBError(result.Err())
+				}
+				app := &cloud.App{}
+				if err := result.Decode(app); err != nil {
+					return nil, db.HandleDBError(err)
+				}
+				actionApp := &models.ActionApp{
+					Name:     app.Name,
+					Type:     app.Type,
+					Model:    app.Model,
+					Status:   string(app.Status),
+					Greeting: app.Greeting,
+					Prompt:   app.Prompt,
+				}
+				action.App = actionApp
+				as.appCache.Store(action.Payload.AppID, actionApp)
+			}
+		} else {
+			action.App = models.NewActionApp()
+		}
+		list = append(list, action)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
 }
 
 func (as *ActionService) UpdateTime(ctx context.Context) error {
-	err := as.UpdateActionTime(ctx)
-	if err != nil {
-		return err
-	}
-	err = as.UpdateChatHistoryTime(ctx)
+	// err := as.UpdateActionTime(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+	err := as.UpdateChatHistoryTime(ctx)
 	if err != nil {
 		return err
 	}
@@ -953,8 +1051,10 @@ func (as *ActionService) UpdateActionTime(ctx context.Context) error {
 }
 
 func (as *ActionService) UpdateChatHistoryTime(ctx context.Context) error {
-	query := bson.M{}
-	query["time_ms"] = bson.M{"$gte": 1690000000000}
+	query := bson.M{
+		"time_ms": bson.M{"$gte": 1690000000000},
+		"time":    bson.M{"$exists": false},
+	}
 	cursor, err := as.chatColl.Find(ctx, query)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
