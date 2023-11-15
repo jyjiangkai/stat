@@ -508,7 +508,7 @@ func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, req 
 		Skip:  &skip,
 		Sort:  sort,
 	}
-	cursor, err := us.userColl.Find(ctx, query, &opt)
+	cursor, err := us.userStatColl.Find(ctx, query, &opt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &api.ListResult{
