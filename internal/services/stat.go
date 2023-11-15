@@ -22,6 +22,7 @@ const (
 	DatabaseOfUserStatistics                          = "vanus-user-statistics"
 	UserActionOfShopifyLandingPage                    = "user_action_of_shopify_landing_page"
 	UserActionOfGithubLandingPage                     = "user_action_of_github_landing_page"
+	UserActionOfAWSCampaignsPage                      = "user_action_of_aws_compaigns_page"
 	TemplateOfShopifyWebhookToGoogleSheets_20231023_1 = "shopify-webhook-google-sheets-20231023_1"
 	TemplateOfShopifyWebhookToGoogleSheets_20231023_2 = "shopify-webhook-google-sheets-20231023_2"
 	TemplateOfShopifyWebhookToMailchimp_20231020_2    = "shopify-webhook-mailchimp-20231020_2"
@@ -180,6 +181,10 @@ func (ss *StatService) rangeDailyStat(ctx context.Context, date time.Time) error
 			return err
 		}
 		err = ss.dailyStatOfGithubLandingPageActionNumber(ctx, daily)
+		if err != nil {
+			return err
+		}
+		err = ss.dailyStatOfAWSCampaignsPageActionNumber(ctx, daily)
 		if err != nil {
 			return err
 		}
@@ -425,6 +430,42 @@ func (ss *StatService) dailyStatOfGithubLandingPageActionNumber(ctx context.Cont
 	query := bson.M{
 		"date": startAt,
 		"tag":  UserActionOfGithubLandingPage,
+	}
+	opts := &options.ReplaceOptions{
+		Upsert: utils.PtrBool(true),
+	}
+	_, err = ss.dailyStatColl.ReplaceOne(ctx, query, daily, opts)
+	if err != nil {
+		log.Error(ctx).Err(err).Msg("failed to insert daily action of github landing page")
+		return err
+	}
+	// log.Info(ctx).Any("date", startAt).Msg("finished daily user action of shopify stat")
+	return nil
+}
+
+func (ss *StatService) dailyStatOfAWSCampaignsPageActionNumber(ctx context.Context, date time.Time) error {
+	if date.Before(time.Date(2023, 10, 26, 0, 0, 0, 0, time.UTC)) {
+		return nil
+	}
+	startAt := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	// endAt := startAt.AddDate(0, 0, 1)
+	visitors, err := plausible.GetVisitors(ctx, "vanus.cn", "/campaigns/aws-smb-hub-2023-11/", startAt.Format("2006-01-02"))
+	if err != nil {
+		return err
+	}
+	daily := &models.DailyStatsOfAWSCampaignsPageActionNumber{
+		Date:                            startAt,
+		Tag:                             UserActionOfAWSCampaignsPage,
+		UniqueVisitorNumber:             visitors,
+		TryVanusActionNumber:            0,
+		SignInWithGithubActionNumber:    0,
+		SignInWithGoogleActionNumber:    0,
+		SignInWithMicrosoftActionNumber: 0,
+		ContactUsActionNumber:           0,
+	}
+	query := bson.M{
+		"date": startAt,
+		"tag":  UserActionOfAWSCampaignsPage,
 	}
 	opts := &options.ReplaceOptions{
 		Upsert: utils.PtrBool(true),

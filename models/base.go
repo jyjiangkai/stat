@@ -264,6 +264,17 @@ type DailyStatsOfGithubLandingPageActionNumber struct {
 	GithubToDiscordWithOpenedPRActionNumber     int64     `json:"github_to_discord_with_opened_pr_action_number" bson:"github_to_discord_with_opened_pr_action_number"`
 }
 
+type DailyStatsOfAWSCampaignsPageActionNumber struct {
+	Date                            time.Time `json:"date" bson:"date"`
+	Tag                             string    `json:"tag" bson:"tag"`
+	UniqueVisitorNumber             int64     `json:"unique_visitor_number" bson:"unique_visitor_number"`
+	TryVanusActionNumber            int64     `json:"try_vanus_action_number" bson:"try_vanus_action_number"`
+	SignInWithGithubActionNumber    int64     `json:"sign_in_with_github_action_number" bson:"sign_in_with_github_action_number"`
+	SignInWithGoogleActionNumber    int64     `json:"sign_in_with_google_action_number" bson:"sign_in_with_google_action_number"`
+	SignInWithMicrosoftActionNumber int64     `json:"sign_in_with_microsoft_action_number" bson:"sign_in_with_microsoft_action_number"`
+	ContactUsActionNumber           int64     `json:"contact_us_action_number" bson:"contact_us_action_number"`
+}
+
 type ActiveUserNumber struct {
 	Date    time.Time `json:"_id" bson:"_id"`
 	Connect int64     `json:"connect" bson:"connect"`

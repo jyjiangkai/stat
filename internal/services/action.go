@@ -589,7 +589,9 @@ func (as *ActionService) listDailyActionNumber(ctx context.Context, pg api.Page,
 		return as.conversionOfShopifyLandingPage(ctx, pg, opts)
 	case "user_conversion_of_github_landing_page":
 		return as.conversionOfGithubLandingPage(ctx, pg, opts)
-	case "user_action_of_shopify_landing_page", "user_action_of_github_landing_page":
+	case "user_conversion_of_aws_campaigns_page":
+		return as.conversionOfAWSCampaignsPage(ctx, pg, opts)
+	case UserActionOfShopifyLandingPage, UserActionOfGithubLandingPage, UserActionOfAWSCampaignsPage:
 		return as.actionOfLandingPage(ctx, pg, opts)
 	}
 	return &api.ListResult{
@@ -710,6 +712,62 @@ func (as *ActionService) conversionOfGithubLandingPage(ctx context.Context, pg a
 	}, nil
 }
 
+func (as *ActionService) conversionOfAWSCampaignsPage(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
+	query := bson.M{
+		"date": bson.M{
+			"$gte": GetStartAt(ctx, pg.Range),
+			// "$lte": end,
+		},
+		"tag": bson.M{
+			"$regex": UserActionOfAWSCampaignsPage,
+		},
+	}
+	opt := options.FindOptions{
+		Sort: bson.M{"date": 1},
+	}
+	cursor, err := as.dailyStatColl.Find(ctx, query, &opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &api.ListResult{
+				List: []interface{}{},
+				P:    pg,
+			}, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
+	list := make([]interface{}, 0)
+	for cursor.Next(ctx) {
+		daily := &models.DailyStatsOfAWSCampaignsPageActionNumber{}
+		if err = cursor.Decode(daily); err != nil {
+			return nil, db.HandleDBError(err)
+		}
+		users, err := as.registeredUserOfLandingPage(ctx, daily.Date, "aws-smb-hub-2023-11")
+		if err != nil {
+			return nil, err
+		}
+		cnt, err := as.createdConnectionOfLandingPage(ctx, users)
+		if err != nil {
+			return nil, err
+		}
+		conversion := &models.UserConversion{
+			Date:       daily.Date,
+			Tag:        daily.Tag,
+			Entered:    daily.UniqueVisitorNumber,
+			Tried:      0,
+			Registered: int64(len(users)),
+			Created:    cnt,
+		}
+		list = append(list, conversion)
+	}
+	return &api.ListResult{
+		List: list,
+		P:    pg,
+	}, nil
+}
+
 func (as *ActionService) actionOfLandingPage(ctx context.Context, pg api.Page, opts *api.ListOptions) (*api.ListResult, error) {
 	query := bson.M{
 		"date": bson.M{
@@ -746,6 +804,14 @@ func (as *ActionService) actionOfLandingPage(ctx context.Context, pg api.Page, o
 	} else if pg.Tag == UserActionOfGithubLandingPage {
 		for cursor.Next(ctx) {
 			daily := &models.DailyStatsOfGithubLandingPageActionNumber{}
+			if err = cursor.Decode(daily); err != nil {
+				return nil, db.HandleDBError(err)
+			}
+			list = append(list, daily)
+		}
+	} else if pg.Tag == UserActionOfAWSCampaignsPage {
+		for cursor.Next(ctx) {
+			daily := &models.DailyStatsOfAWSCampaignsPageActionNumber{}
 			if err = cursor.Decode(daily); err != nil {
 				return nil, db.HandleDBError(err)
 			}
@@ -794,14 +860,38 @@ func (as *ActionService) createdConnectionOfLandingPage(ctx context.Context, use
 	if len(users) == 0 {
 		return 0, nil
 	}
-	query := bson.M{
-		"created_by": bson.M{
-			"$in": users,
+	pipeline := mongo.Pipeline{
+		{
+			{"$match", bson.D{
+				{"created_by", bson.M{
+					"$in": users,
+				}},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$created_by"},
+				{"count", bson.M{"$sum": 1}},
+			}},
 		},
 	}
-	cnt, err := as.connectionColl.CountDocuments(ctx, query)
+	type userGroup struct {
+		User  string `bson:"_id"`
+		Count uint64 `bson:"count"`
+	}
+	cursor, err := as.connectionColl.Aggregate(ctx, pipeline)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Warn(ctx).Msg("no documents")
+			return 0, nil
+		}
+		log.Error(ctx).Err(err).Msg("aggregate error")
 		return 0, err
+	}
+	defer cursor.Close(ctx)
+	cnt := int64(0)
+	for cursor.Next(ctx) {
+		cnt += 1
 	}
 	return cnt, nil
 }

@@ -25,6 +25,7 @@ const (
 	UserTypeOfUsed                           = "used"
 	UserTypeOfRegisterFromShopifyLandingPage = "register_from_shopify_landing_page"
 	UserTypeOfRegisterFromGithubLandingPage  = "register_from_github_landing_page"
+	UserTypeOfRegisterFromAWSCampaignsPage   = "register_from_aws_campaigns_page"
 	UserTypeOfConnectionTemplateCreated      = "connection_template_created"
 	UserTypeOfPremium                        = "premium"
 	UserTypeOfNoKnownledgeBase               = "no_knowledge_base"
@@ -449,6 +450,8 @@ func (us *UserService) listSpecifiedUsers(ctx context.Context, pg api.Page, req 
 		return us.listRegisterFromLandingPageUsers(ctx, pg, req.FilterStack, "shopify-landing", req.Point.X)
 	case UserTypeOfRegisterFromGithubLandingPage:
 		return us.listRegisterFromLandingPageUsers(ctx, pg, req.FilterStack, "github-landing", req.Point.X)
+	case UserTypeOfRegisterFromAWSCampaignsPage:
+		return us.listRegisterFromLandingPageUsers(ctx, pg, req.FilterStack, "aws-smb-hub-2023-11", req.Point.X)
 	case UserTypeOfLogin:
 		users, err = us.getLoginUsers(ctx, req.Range)
 		if err != nil {
