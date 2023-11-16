@@ -27,6 +27,11 @@ func RegisterActionsRouter(group *gin.RouterGroup,
 	wrapRouterGroup(group, http.MethodGet, pathID, ctrl.Get)
 }
 
+func RegisterDownloadRouter(group *gin.RouterGroup,
+	ctrl *controller.DownloadController) {
+	group.GET("", ctrl.Get)
+}
+
 type HandlerFunc func(ctx *gin.Context) (any, error)
 
 func wrapHandlerFunc(f HandlerFunc) gin.HandlerFunc {

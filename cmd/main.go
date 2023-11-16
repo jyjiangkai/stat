@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
+	"github.com/jyjiangkai/stat/config"
 	"github.com/jyjiangkai/stat/controller"
 	"github.com/jyjiangkai/stat/db"
 	"github.com/jyjiangkai/stat/internal/services"
@@ -25,6 +26,7 @@ type Config struct {
 	DB        db.Config        `yaml:"mongodb"`
 	Monitor   monitor.Config   `yaml:"monitor"`
 	MailChimp mailchimp.Config `yaml:"mailchimp"`
+	S3        config.S3        `yaml:"s3"`
 }
 
 var (
@@ -84,6 +86,12 @@ func main() {
 	router.RegisterUsersRouter(
 		e.Group("/users"),
 		controller.NewUserController(userService),
+	)
+
+	downloadService := services.NewDownloadService(cfg.S3)
+	router.RegisterDownloadRouter(
+		e.Group("/download"),
+		controller.NewDownloadController(downloadService),
 	)
 
 	actionService := services.NewActionService(cli)
